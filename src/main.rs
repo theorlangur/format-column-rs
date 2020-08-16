@@ -21,7 +21,6 @@ fn parse_first_num(s :&str) -> (Option<i16>, &str)
 fn main() -> Result<(), Box<dyn Error>> {
     
     use column_tools::LineDescr;
-    use column_tools::LifetimeCheck;
     use column_tools::Formatter;
     use column_tools::Printer;
     use column_tools::Align;
@@ -32,7 +31,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut separators : Vec<char> = vec![' '];
     let mut new_column_separators : Vec<char> = vec![];
     let mut lines: Vec<LineDescr> = Vec::new();
-    let mut ltch: Vec<LifetimeCheck> = Vec::new();
     let mut fmtr = Formatter::new();
     
     let mut out_file : Option<&String>  = None;
@@ -107,7 +105,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut src : Box<dyn std::io::BufRead> = if src_file.is_some() {
             let f = std::fs::File::open(src_file.unwrap());
             if f.is_ok() {
-                Box::new(std::io::BufReader::new(f.unwrap()))
+                Box::new(std::io::BufReader::new(f?))
             }else{
                 Box::new(std::io::BufReader::new(std::io::stdin()))
             }
@@ -115,28 +113,29 @@ fn main() -> Result<(), Box<dyn Error>> {
             Box::new(std::io::BufReader::new(std::io::stdin()))
         };
     
-    lines.push(LineDescr::new());
+    let mut lines_str : Vec<String> = vec![];
     loop  
     {
-        let line :&mut LineDescr = lines.last_mut().unwrap();
-        {
-           if src.read_line(&mut line.s)? <= 0 {
-               break;
-           } 
-        }
-        line.s = line.s.trim_end().to_string();
-        fmtr.analyze_line(line);
-        lines.push(LineDescr::new());
+        let mut l :String = String::new();
+        if src.read_line(&mut l)? <= 0 {
+            break;
+        } 
+        lines_str.push(l.trim_end().to_string());
     }
-    lines.pop();
-
+    
+    lines.reserve(lines_str.len());
+    lines_str.iter().for_each(|l|{
+       let mut line = LineDescr::new(&l);
+       fmtr.analyze_line(&mut line);
+       lines.push(line); 
+    });
     
     fmtr.finish();
     
     let mut out : Box<dyn std::io::Write> = if out_file.is_some() {
             let f = std::fs::File::create(out_file.unwrap());
             if f.is_ok() {
-                Box::new(f.unwrap())
+                Box::new(f?)
             }else{
                 Box::new(std::io::stdout())
             }

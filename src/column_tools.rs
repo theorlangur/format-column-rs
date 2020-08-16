@@ -1,19 +1,13 @@
-struct LineSlice
+pub struct LineDescr<'a>
 {
-    beg : usize,
-    end : usize
+    s : &'a str,
+    pub columns : Vec<&'a str>
 }
 
-pub struct LineDescr
-{
-    pub s : String,
-    columns : Vec<LineSlice>
-}
-
-impl LineDescr{
-    pub fn new() -> LineDescr
+impl<'a> LineDescr<'a>{
+    pub fn new(s : &'a str) -> LineDescr<'a>
     {
-        LineDescr{s : String::new(), columns : Vec::new()}
+        LineDescr{s, columns : Vec::new()}
     }
 }
 
@@ -143,10 +137,10 @@ impl Formatter
         }
     }
 
-    fn add_column(&mut self, begin:usize, end:usize, cols :&mut Vec<LineSlice>)
+    fn add_column<'a>(&mut self, begin:usize, end:usize, s : &'a str, cols :&mut Vec<&'a str>)
     {
         let cnt = end - begin;
-        cols.push(LineSlice{beg : begin, end});
+        cols.push(&s[begin..end]);
         self.check_biggest_column(cols.len() - 1, cnt);
     }
 
@@ -156,7 +150,8 @@ impl Formatter
         
     }
 
-    pub fn analyze_line(&mut self, l :&mut LineDescr)
+    //pub fn analyze_line<'a>(&mut self, st: &'a str, cols :&mut Vec<&'a str>)
+    pub fn analyze_line<'a>(&mut self, l: &mut LineDescr<'a>)
     {
         enum State{
             BeforeColumnBegin,
@@ -165,11 +160,11 @@ impl Formatter
         self.tracker.reset();
         let mut column_begin = 0;
         let mut s = State::BeforeColumnBegin;
-        for (off,v) in l.s.chars().enumerate(){
+        for (off,v) in l.s.char_indices(){
             s = match s {
                 State::BeforeColumnBegin => if self.tracker.is_column_begin(v) {column_begin = off; State::InsideColumn} else {State::BeforeColumnBegin},
                 State::InsideColumn => if self.tracker.is_column_end(v) {
-                        self.add_column(column_begin, off, &mut l.columns);
+                        self.add_column(column_begin, off, l.s, &mut l.columns);
                         State::BeforeColumnBegin
                     }else{
                         State::InsideColumn
@@ -178,10 +173,11 @@ impl Formatter
         }
 
         match s {
-            State::InsideColumn => self.add_column(column_begin, l.s.len(), &mut l.columns),
+            State::InsideColumn => self.add_column(column_begin, l.s.len(), l.s, &mut l.columns),
             _ => ()
         }
     }
+}
 
 pub enum Align {
     Left,
@@ -209,13 +205,12 @@ impl<'a> Printer<'a>{
         let mut res = String::with_capacity(self.fmt.total_size + self.fmt.columns.len() * (self.join.len() + self.fill_count as usize));
         let fill_str = self.fill.to_string();
         
-        for (c,sub_range) in l.columns.iter().enumerate(){
+        for (c,subs) in l.columns.iter().enumerate(){
             if c > 0 {
                 res.push_str(&self.join);
             }
             
             let w = self.fmt.columns[c];
-            let subs = &l.s[sub_range.beg..sub_range.end];
             let delta = w - subs.len() + self.fill_count as usize;
             
             if let Align::Right = self.align {
