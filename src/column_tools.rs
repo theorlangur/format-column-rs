@@ -1,7 +1,7 @@
 pub struct LineDescr<'a>
 {
     s : &'a str,
-    pub columns : Vec<&'a str>
+    columns : Vec<&'a str>
 }
 
 impl<'a> LineDescr<'a>{
