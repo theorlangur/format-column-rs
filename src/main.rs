@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut align = Align::Left;
     let mut print_fill : char = ' ';
     let mut print_fill_count : u8 = 0;
-    let mut print_join : String = String::from(" ");
+    let mut print_join : String = String::new();
     let mut non_matched_as_is = false;
 
     let mut arg_it = args.iter();
