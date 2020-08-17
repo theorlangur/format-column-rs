@@ -1,3 +1,78 @@
+/****************************************************
+ * AddToString trait
+ * 
+ ***************************************************/
+trait AddToString
+{
+    fn add_to_string(&self, dest :&mut String);
+    fn own_size(&self)->usize;
+}
+
+impl AddToString for String
+{
+    fn add_to_string(&self, dest :&mut String)
+    {
+        dest.push_str(self);
+    }
+    
+    fn own_size(&self)->usize {
+        self.len()
+    }
+}
+
+impl AddToString for &str
+{
+    fn add_to_string(&self, dest :&mut String)
+    {
+        dest.push_str(self);
+    }
+    
+    fn own_size(&self)->usize {
+        self.len()
+    }
+}
+
+impl AddToString for char
+{
+    fn add_to_string(&self, dest :&mut String)
+    {
+        dest.push(*self);
+    }
+    
+    fn own_size(&self)->usize {
+        std::mem::size_of::<char>()
+    }
+}
+
+pub enum Align {
+    Left,
+    Center,
+    Right
+}
+
+fn align_string<T>(target :T, fill_str :&str, delta :usize, a : &Align)->String
+where T:AddToString
+{
+   let mut res = String::with_capacity(fill_str.len() * delta + target.own_size());
+
+   if let Align::Right = a {
+       res.push_str(&fill_str.repeat(delta));
+   }else if let Align::Center = a {
+       res.push_str(&fill_str.repeat(delta / 2));
+   }
+   
+   target.add_to_string(&mut res);
+   
+   if let Align::Left = a {
+       res.push_str(&fill_str.repeat(delta));
+   }else if let Align::Center = a {
+       res.push_str(&fill_str.repeat(delta / 2 + delta % 2));
+   }
+   
+   res
+}
+
+
 struct Column<'a>
 {
     col : &'a str,
@@ -17,8 +92,7 @@ impl<'a> LineDescr<'a>{
     }
 }
 
-#[derive(Clone)]
-pub struct Boundary
+struct Boundary
 {
     open : char,//char that 'opens' the block, also for simple separators
     close : Option<char>, //char that 'closes' the block
@@ -224,10 +298,12 @@ impl Formatter
     }
 }
 
-pub enum Align {
-    Left,
-    Center,
-    Right
+pub struct SeparatorConfig
+{
+    sep : char,
+    fill : char,
+    count : u8,
+    align : Align,
 }
 
 pub struct Printer<'a>
@@ -238,12 +314,22 @@ pub struct Printer<'a>
     align : Align,
     fmt : &'a Formatter,
     non_matched_as_is : bool,//lines with not exactly amount of columns will be written as is
+    sep_joins : Vec<SeparatorConfig>,
 }
 
 impl<'a> Printer<'a>{
     pub fn new(fmt : &'a Formatter, align:Align, fill : char, fill_count : u8, join : String, non_matched_as_is : bool) -> Printer
     {
-        Printer{fill, align, fmt, fill_count, join, non_matched_as_is}
+        Printer{fill, align, fmt, fill_count, join, non_matched_as_is, sep_joins : Vec::new()}
+    }
+
+    pub fn set_separator_configs(&mut self, cfgs : Vec<SeparatorConfig>) {
+       self.sep_joins = cfgs; 
+    }
+
+    fn find_sep_config(&self, sep : char) -> Option<&SeparatorConfig>
+    {
+        return self.sep_joins.iter().find(|i| i.sep == sep);
     }
 
     pub fn format_line(&self, l : &LineDescr) -> Option<String>
@@ -265,22 +351,14 @@ impl<'a> Printer<'a>{
             let w = self.fmt.columns[c];
             let delta = w - subs.len() + self.fill_count as usize;
             
-            if let Align::Right = self.align {
-                res.push_str(&fill_str.repeat(delta));
-            }else if let Align::Center = self.align {
-                res.push_str(&fill_str.repeat(delta / 2));
-            }
-            
-            res.push_str(&subs);
-            
-            if let Align::Left = self.align {
-                res.push_str(&fill_str.repeat(delta));
-            }else if let Align::Center = self.align {
-                res.push_str(&fill_str.repeat(delta / 2 + delta % 2));
-            }
+            res.push_str(&align_string(subs, &fill_str, delta, &self.align));
 
             if !explicit_join && s.sep != '\0' {
-                res.push(s.sep);
+                if let Some(sep_cfg) = self.find_sep_config(s.sep) {
+                    res.push_str(&align_string(s.sep, &sep_cfg.fill.to_string(), sep_cfg.count as usize, &sep_cfg.align));
+                }else{
+                    res.push(s.sep);
+                }
             }
         }
 
