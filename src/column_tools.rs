@@ -38,7 +38,7 @@ impl Boundary
         if c == self.open {
             if self.close.is_none() && self.lim != self.lim_orig {
                 self.lim += 1;
-            }else {
+            }else{
                 self.lim -= 1;
             }
                 
@@ -56,23 +56,51 @@ impl Boundary
     }
 }
 
+pub enum BoundType
+{
+    Include,
+    Exclude
+}
+
 pub struct ColumnTracker
 {
     seps : Vec<char>,
     seps_new_column : Vec<char>,
-    bounds : Vec<Boundary>
+    include : Vec<Boundary>,
+    exclude : Vec<Boundary>
 }
 
 impl ColumnTracker
 {
     pub fn new() -> ColumnTracker
     {
-        ColumnTracker{seps: Vec::new(), seps_new_column: Vec::new(), bounds : Vec::new()}
+        ColumnTracker{seps: Vec::new(), seps_new_column: Vec::new(), include : Vec::new(), exclude : Vec::new()}
     }
 
     pub fn reset(&mut self)
     {
-        self.bounds.iter_mut().for_each(|x|x.reset());
+        self.include.iter_mut().for_each(|x|x.reset());
+        self.exclude.iter_mut().for_each(|x|x.reset());
+    }
+
+    fn check_bounds(&mut self, c : char) -> bool
+    {
+        let mut res = true;
+        for s in self.include.iter_mut() {
+            let (_, allowed) = s.check(c);
+            if !allowed {
+                res = false;
+            }
+        }
+
+        for s in self.exclude.iter_mut() {
+            let (_, ignore) = s.check(c);
+            if ignore {
+                res = false;
+            }
+        }
+
+        res
     }
 
     pub fn is_column_end(&mut self, c : char) -> bool
@@ -82,17 +110,16 @@ impl ColumnTracker
             res = true;
         }
 
-        for s in self.bounds.iter_mut() {
-            let (_, allowed) = s.check(c);
-            if !allowed {
-                res = false;
-            }
+        if self.check_bounds(c) {
+            res
+        }else {
+            false
         }
-        res
     }
 
-    pub fn is_column_begin(&self, c : char) -> bool
+    pub fn is_column_begin(&mut self, c : char) -> bool
     {
+        self.check_bounds(c);
         let seps = if self.seps_new_column.is_empty() { &self.seps }else{ &self.seps_new_column };
         if let Result::Ok(_) = seps.binary_search(&c) {
             false //among separators? - no the column begin
@@ -128,14 +155,22 @@ impl Formatter
        self.tracker.seps_new_column.sort();
     }
 
-    pub fn add_boundary_symmetrical(&mut self, b_sym : char, lim : i16)
+    pub fn add_boundary_symmetrical(&mut self, b_sym : char, lim : i16, bt : BoundType)
     {
-        self.tracker.bounds.push(Boundary{open : b_sym, close : None, lim, lim_orig: lim});
+        let bounds = match bt {
+            BoundType::Include => &mut self.tracker.include,
+            BoundType::Exclude => &mut self.tracker.exclude,
+        };
+        bounds.push(Boundary{open : b_sym, close : None, lim, lim_orig: lim});
     }
 
-    pub fn add_boundary(&mut self, b_sym_open : char, b_sym_close : char, lim : i16)
+    pub fn add_boundary(&mut self, b_sym_open : char, b_sym_close : char, lim : i16, bt : BoundType)
     {
-        self.tracker.bounds.push(Boundary{open : b_sym_open, close : Some(b_sym_close), lim, lim_orig: lim});
+        let bounds = match bt {
+            BoundType::Include => &mut self.tracker.include,
+            BoundType::Exclude => &mut self.tracker.exclude,
+        };
+        bounds.push(Boundary{open : b_sym_open, close : Some(b_sym_close), lim, lim_orig: lim});
     }
 
     fn check_biggest_column(&mut self, idx : usize, sz :usize)
@@ -161,7 +196,6 @@ impl Formatter
         
     }
 
-    //pub fn analyze_line<'a>(&mut self, st: &'a str, cols :&mut Vec<&'a str>)
     pub fn analyze_line<'a>(&mut self, l: &mut LineDescr<'a>)
     {
         enum State{

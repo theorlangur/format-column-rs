@@ -72,16 +72,23 @@ fn main() -> Result<(), Box<dyn Error>> {
                if let Some(join_str) = arg_it.next() {
                    print_join = join_str.clone();
                }
-           }else if arg == "--boundary" {
+           }else if arg == "--include" || arg == "--exclude" {
                if let Some(bound_str) = arg_it.next() {
                   let res = parse_first_num(&bound_str);
                   if res.0.is_some() && res.1.len() > 0 {
                      let mut chrs = res.1.chars();
                      let open_c = chrs.next().unwrap(); 
-                     if let Some(close_c) = chrs.next() {
-                        fmtr.add_boundary(open_c, close_c, res.0.unwrap()); 
-                     }else {
-                        fmtr.add_boundary_symmetrical(open_c, res.0.unwrap()); 
+                     let bt_opt : Option<column_tools::BoundType> = match arg.as_str() {
+                        "--include" => Some(column_tools::BoundType::Include), 
+                        "--exclude" => Some(column_tools::BoundType::Exclude), 
+                        &_ => None
+                     };
+                     if let Some(bt) = bt_opt {
+                         if let Some(close_c) = chrs.next() {
+                            fmtr.add_boundary(open_c, close_c, res.0.unwrap(), bt); 
+                         }else {
+                            fmtr.add_boundary_symmetrical(open_c, res.0.unwrap(), bt); 
+                         }
                      }
                   }
                }
