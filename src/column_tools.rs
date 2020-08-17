@@ -236,22 +236,28 @@ pub struct Printer<'a>
     fill_count : u8,
     join : String,
     align : Align,
-    fmt : &'a Formatter
+    fmt : &'a Formatter,
+    non_matched_as_is : bool,//lines with not exactly amount of columns will be written as is
 }
 
 impl<'a> Printer<'a>{
-    pub fn new(fmt : &'a Formatter, align:Align, fill : char, fill_count : u8, join : String) -> Printer
+    pub fn new(fmt : &'a Formatter, align:Align, fill : char, fill_count : u8, join : String, non_matched_as_is : bool) -> Printer
     {
-        Printer{fill, align, fmt, fill_count, join}
+        Printer{fill, align, fmt, fill_count, join, non_matched_as_is}
     }
 
-    pub fn format_line(&self, l : &LineDescr) -> String
+    pub fn format_line(&self, l : &LineDescr) -> Option<String>
     {
+        if self.non_matched_as_is && l.columns.len() != self.fmt.columns.len() {
+            return Some(l.s.to_string());
+        }
+        
         let mut res = String::with_capacity(self.fmt.total_size + self.fmt.columns.len() * (self.join.len() + self.fill_count as usize));
         let fill_str = self.fill.to_string();
+        let explicit_join = !self.join.is_empty();
         
         for (c,s) in l.columns.iter().enumerate(){
-            if c > 0 && !self.join.is_empty() {
+            if explicit_join && c > 0 {
                 res.push_str(&self.join);
             }
             
@@ -273,12 +279,12 @@ impl<'a> Printer<'a>{
                 res.push_str(&fill_str.repeat(delta / 2 + delta % 2));
             }
 
-            if self.join.is_empty() && s.sep != '\0' {
+            if !explicit_join && s.sep != '\0' {
                 res.push(s.sep);
             }
         }
 
         res.push('\n');
-        res
+        Some(res)
     }
 }

@@ -40,6 +40,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut print_fill : char = ' ';
     let mut print_fill_count : u8 = 0;
     let mut print_join : String = String::from(" ");
+    let mut non_matched_as_is = false;
 
     let mut arg_it = args.iter();
     loop 
@@ -96,6 +97,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                if let Some(seps) = arg_it.next() {
                    separators = seps.chars().collect();
                }
+           }else if arg == "--non_matched_as_is" {
+               non_matched_as_is = true;
            } else if arg == "--new_column_seps" {
                if let Some(seps) = arg_it.next() {
                    new_column_separators = seps.chars().collect();
@@ -150,11 +153,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Box::new(std::io::stdout())
         };
 
-    let printer = Printer::new(&fmtr, align, print_fill, print_fill_count, print_join);
+    let printer = Printer::new(&fmtr, align, print_fill, print_fill_count, print_join, non_matched_as_is);
     for l in lines.iter()
     {
-        let s = printer.format_line(&l);
-        out.write(s.as_bytes())?;
+        if let Some(s) = printer.format_line(&l) {
+            out.write(s.as_bytes())?;
+        }
     }
     out.flush()?;
     Ok(())
