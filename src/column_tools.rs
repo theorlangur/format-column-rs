@@ -1,7 +1,13 @@
+struct Column<'a>
+{
+    col : &'a str,
+    sep : char
+}
+
 pub struct LineDescr<'a>
 {
     s : &'a str,
-    columns : Vec<&'a str>
+    columns : Vec<Column<'a>>
 }
 
 impl<'a> LineDescr<'a>{
@@ -30,11 +36,16 @@ impl Boundary
     pub fn check(&mut self, c : char) -> (bool, bool)
     {
         if c == self.open {
-            self.lim = self.lim - 1;
+            if self.close.is_none() && self.lim != self.lim_orig {
+                self.lim += 1;
+            }else {
+                self.lim -= 1;
+            }
+                
             (true, self.lim <= 0)
         }else if let Some(cl) = self.close {
             if cl == c {
-                self.lim = self.lim + 1;
+                self.lim += 1;
                 (true, self.lim <= 0)
             }else {
                 (false, self.lim <= 0)
@@ -137,10 +148,10 @@ impl Formatter
         }
     }
 
-    fn add_column<'a>(&mut self, begin:usize, end:usize, s : &'a str, cols :&mut Vec<&'a str>)
+    fn add_column<'a>(&mut self, begin:usize, end:usize, ch : char, s : &'a str, cols :&mut Vec<Column<'a>>)
     {
         let cnt = end - begin;
-        cols.push(&s[begin..end]);
+        cols.push(Column{col : &s[begin..end], sep : ch});
         self.check_biggest_column(cols.len() - 1, cnt);
     }
 
@@ -164,7 +175,7 @@ impl Formatter
             s = match s {
                 State::BeforeColumnBegin => if self.tracker.is_column_begin(v) {column_begin = off; State::InsideColumn} else {State::BeforeColumnBegin},
                 State::InsideColumn => if self.tracker.is_column_end(v) {
-                        self.add_column(column_begin, off, l.s, &mut l.columns);
+                        self.add_column(column_begin, off, v, l.s, &mut l.columns);
                         State::BeforeColumnBegin
                     }else{
                         State::InsideColumn
@@ -173,7 +184,7 @@ impl Formatter
         }
 
         match s {
-            State::InsideColumn => self.add_column(column_begin, l.s.len(), l.s, &mut l.columns),
+            State::InsideColumn => self.add_column(column_begin, l.s.len(), '\0', l.s, &mut l.columns),
             _ => ()
         }
     }
@@ -205,11 +216,12 @@ impl<'a> Printer<'a>{
         let mut res = String::with_capacity(self.fmt.total_size + self.fmt.columns.len() * (self.join.len() + self.fill_count as usize));
         let fill_str = self.fill.to_string();
         
-        for (c,subs) in l.columns.iter().enumerate(){
-            if c > 0 {
+        for (c,s) in l.columns.iter().enumerate(){
+            if c > 0 && !self.join.is_empty() {
                 res.push_str(&self.join);
             }
             
+            let subs : &str = s.col;
             let w = self.fmt.columns[c];
             let delta = w - subs.len() + self.fill_count as usize;
             
@@ -225,6 +237,10 @@ impl<'a> Printer<'a>{
                 res.push_str(&fill_str.repeat(delta));
             }else if let Align::Center = self.align {
                 res.push_str(&fill_str.repeat(delta / 2 + delta % 2));
+            }
+
+            if self.join.is_empty() && s.sep != '\0' {
+                res.push(s.sep);
             }
         }
 
