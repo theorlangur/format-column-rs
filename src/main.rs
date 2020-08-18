@@ -1,29 +1,15 @@
 mod column_tools;
 use std::error::Error;
 
-fn parse_first_num(s :&str) -> (Option<i16>, &str)
-{
-    let mut numres : Option<i16> = None;
-    let mut rest_str : &str = s;
-    
-    for (i,c) in s.chars().enumerate() {
-        if c < '0' || c > '9' {
-           if i > 0 {
-               numres = Some(s[..i].parse::<i16>().unwrap());
-               rest_str = &s[i..];
-           } 
-        }
-    }
-    
-    (numres, rest_str)
-}
-
 fn main() -> Result<(), Box<dyn Error>> {
     
     use column_tools::LineDescr;
     use column_tools::Formatter;
     use column_tools::Printer;
     use column_tools::Align;
+    use column_tools::Boundary;
+    use column_tools::SeparatorConfig;
+
     use std::io::Write;
     
     let args : Vec<String> = std::env::args().collect();
@@ -42,6 +28,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut print_join : String = String::new();
     let mut non_matched_as_is = false;
 
+    let mut sep_cfgs : Vec<SeparatorConfig> = vec![];
+
     let mut arg_it = args.iter();
     loop 
     {
@@ -52,13 +40,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                out_file = arg_it.next();
            }else if arg == "--align" {
                if let Some(align_str) = arg_it.next() {
-                   let lc_align_str = align_str.to_lowercase();
-                   if lc_align_str == "left" {
-                       align = Align::Left;
-                   }else if lc_align_str == "center" {
-                       align = Align::Center;
-                   }else if lc_align_str == "right" {
-                       align = Align::Right;
+                   if let Ok(al) = align_str.parse::<Align>() {
+                       align = al;
                    }
                }
            }else if arg == "--fill" {
@@ -75,23 +58,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                }
            }else if arg == "--include" || arg == "--exclude" {
                if let Some(bound_str) = arg_it.next() {
-                  let res = parse_first_num(&bound_str);
-                  if res.0.is_some() && res.1.len() > 0 {
-                     let mut chrs = res.1.chars();
-                     let open_c = chrs.next().unwrap(); 
-                     let bt_opt : Option<column_tools::BoundType> = match arg.as_str() {
-                        "--include" => Some(column_tools::BoundType::Include), 
-                        "--exclude" => Some(column_tools::BoundType::Exclude), 
-                        &_ => None
-                     };
-                     if let Some(bt) = bt_opt {
-                         if let Some(close_c) = chrs.next() {
-                            fmtr.add_boundary(open_c, close_c, res.0.unwrap(), bt); 
-                         }else {
-                            fmtr.add_boundary_symmetrical(open_c, res.0.unwrap(), bt); 
-                         }
-                     }
-                  }
+                   if let Ok(bnd) = bound_str.parse::<Boundary>() {
+                        let bt = (&arg[2..]).parse::<column_tools::BoundType>()?;
+                        fmtr.add_boundary(bnd, bt); 
+                   }
                }
            }else if arg == "--seps" {
                if let Some(seps) = arg_it.next() {
@@ -99,6 +69,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                }
            }else if arg == "--non_matched_as_is" {
                non_matched_as_is = true;
+           }else if arg == "--sep_config" {
+               if let Some(cfg_str) = arg_it.next() {
+                   if let Ok(cfg) = cfg_str.parse::<SeparatorConfig>() {
+                       sep_cfgs.push(cfg);
+                   }
+               }
            } else if arg == "--new_column_seps" {
                if let Some(seps) = arg_it.next() {
                    new_column_separators = seps.chars().collect();
@@ -153,7 +129,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Box::new(std::io::stdout())
         };
 
-    let printer = Printer::new(&fmtr, align, print_fill, print_fill_count, print_join, non_matched_as_is);
+    let mut printer = Printer::new(&fmtr, align, print_fill, print_fill_count, print_join, non_matched_as_is);
+    printer.set_separator_configs(sep_cfgs);
+    
     for l in lines.iter()
     {
         if let Some(s) = printer.format_line(&l) {

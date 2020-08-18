@@ -44,10 +44,45 @@ impl AddToString for char
     }
 }
 
+#[derive(Debug)]
+pub struct ParseErr{
+    
+}
+
+impl std::fmt::Display for ParseErr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "parse error")
+    }
+}
+
+impl std::error::Error for ParseErr {
+}
+
+impl std::convert::From<std::num::ParseIntError> for ParseErr{
+    fn from(_err : std::num::ParseIntError) -> Self
+    {
+        Self{}
+    }
+}
+
 pub enum Align {
     Left,
     Center,
     Right
+}
+
+impl std::str::FromStr for Align {
+    type Err = ParseErr;
+
+    fn from_str(s :&str) -> Result<Align, Self::Err>
+    {
+       match s.to_lowercase().as_str() {
+           "left" => Ok(Align::Left),
+           "right" => Ok(Align::Right),
+           "center" => Ok(Align::Center),
+           &_ => Err(Self::Err{}),
+       }
+    }
 }
 
 fn align_string<T>(target :T, fill_str :&str, delta :usize, a : &Align)->String
@@ -92,7 +127,7 @@ impl<'a> LineDescr<'a>{
     }
 }
 
-struct Boundary
+pub struct Boundary
 {
     open : char,//char that 'opens' the block, also for simple separators
     close : Option<char>, //char that 'closes' the block
@@ -130,10 +165,44 @@ impl Boundary
     }
 }
 
+impl std::str::FromStr for Boundary {
+    type Err = ParseErr;
+
+    fn from_str(s :&str) -> Result<Self, Self::Err>
+    {
+        if let Some(last_num_idx) = s.find(|c|c < '0' || c > '9') {
+           let lim_orig = s[..last_num_idx].parse::<i16>()?;
+           let rest = &s[last_num_idx..];
+           if rest.len() > 0 {
+            let mut chrs = rest.chars();
+            let open_c = chrs.next().unwrap(); 
+            let res = Boundary{open : open_c, close : chrs.next(), lim_orig, lim : lim_orig};
+            return Ok(res);
+           }
+        }
+        
+        Err(Self::Err{})
+    }
+}
+
+
 pub enum BoundType
 {
     Include,
     Exclude
+}
+
+impl std::str::FromStr for BoundType {
+    type Err = ParseErr;
+
+    fn from_str(s :&str) -> Result<Self, Self::Err>
+    {
+       match s {
+           "include" => Ok(BoundType::Include),
+           "exclude" => Ok(BoundType::Exclude),
+           &_ => Err(Self::Err{}),
+       }
+    }
 }
 
 pub struct ColumnTracker
@@ -229,22 +298,12 @@ impl Formatter
        self.tracker.seps_new_column.sort();
     }
 
-    pub fn add_boundary_symmetrical(&mut self, b_sym : char, lim : i16, bt : BoundType)
+    pub fn add_boundary(&mut self, bnd : Boundary, bt : BoundType)
     {
-        let bounds = match bt {
+        match bt {
             BoundType::Include => &mut self.tracker.include,
             BoundType::Exclude => &mut self.tracker.exclude,
-        };
-        bounds.push(Boundary{open : b_sym, close : None, lim, lim_orig: lim});
-    }
-
-    pub fn add_boundary(&mut self, b_sym_open : char, b_sym_close : char, lim : i16, bt : BoundType)
-    {
-        let bounds = match bt {
-            BoundType::Include => &mut self.tracker.include,
-            BoundType::Exclude => &mut self.tracker.exclude,
-        };
-        bounds.push(Boundary{open : b_sym_open, close : Some(b_sym_close), lim, lim_orig: lim});
+        }.push(bnd);
     }
 
     fn check_biggest_column(&mut self, idx : usize, sz :usize)
@@ -304,6 +363,33 @@ pub struct SeparatorConfig
     fill : char,
     count : u8,
     align : Align,
+}
+
+impl std::str::FromStr for SeparatorConfig {
+    type Err = ParseErr;
+
+    fn from_str(s :&str) -> Result<Self, Self::Err>
+    {
+        let mut it = s.split(':');
+        if let Some(sep) = it.next() {
+            
+            if sep.len() == 1 {
+               let mut res = SeparatorConfig{sep : sep.chars().next().unwrap(), fill : ' ', count : 1, align : Align::Left }; 
+               if let Some(f) = it.next() {
+                   res.fill = f.chars().next().unwrap();
+               }
+               if let Some(c) = it.next() {
+                   res.count = c.parse::<u8>()?;
+               }
+               if let Some(a) = it.next() {
+                   res.align = a.parse::<Align>()?;
+               }
+               return Ok(res);
+            }
+        }
+        
+        Err(Self::Err{})
+    }
 }
 
 pub struct Printer<'a>
