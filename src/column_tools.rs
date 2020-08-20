@@ -363,6 +363,7 @@ pub struct SeparatorConfig
     fill : char,
     count : u8,
     align : Align,
+    sep_str : String,
 }
 
 impl std::str::FromStr for SeparatorConfig {
@@ -374,7 +375,7 @@ impl std::str::FromStr for SeparatorConfig {
         if let Some(sep) = it.next() {
             
             if sep.len() == 1 {
-               let mut res = SeparatorConfig{sep : sep.chars().next().unwrap(), fill : ' ', count : 1, align : Align::Left }; 
+               let mut res = SeparatorConfig{sep : sep.chars().next().unwrap(), fill : ' ', count : 1, align : Align::Left, sep_str: String::new() }; 
                if let Some(f) = it.next() {
                    res.fill = f.chars().next().unwrap();
                }
@@ -384,6 +385,7 @@ impl std::str::FromStr for SeparatorConfig {
                if let Some(a) = it.next() {
                    res.align = a.parse::<Align>()?;
                }
+               res.sep_str = align_string(res.sep, &res.fill.to_string(), res.count as usize, &res.align);
                return Ok(res);
             }
         }
@@ -441,7 +443,7 @@ impl<'a> Printer<'a>{
 
             if !explicit_join && s.sep != '\0' {
                 if let Some(sep_cfg) = self.find_sep_config(s.sep) {
-                    res.push_str(&align_string(s.sep, &sep_cfg.fill.to_string(), sep_cfg.count as usize, &sep_cfg.align));
+                    res.push_str(&sep_cfg.sep_str);
                 }else{
                     res.push(s.sep);
                 }
