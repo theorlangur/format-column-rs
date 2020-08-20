@@ -337,12 +337,14 @@ impl Formatter
         }
         self.tracker.reset();
         let mut column_begin = 0;
+        let mut past_column_end = 0;
         let mut s = State::BeforeColumnBegin;
         for (off,v) in l.s.char_indices(){
             s = match s {
                 State::BeforeColumnBegin => if self.tracker.is_column_begin(v) {column_begin = off; State::InsideColumn} else {State::BeforeColumnBegin},
                 State::InsideColumn => if self.tracker.is_column_end(v) {
                         self.add_column(column_begin, off, v, l.s, &mut l.columns);
+                        past_column_end = off + 1;
                         State::BeforeColumnBegin
                     }else{
                         State::InsideColumn
@@ -352,7 +354,7 @@ impl Formatter
 
         match s {
             State::InsideColumn => self.add_column(column_begin, l.s.len(), '\0', l.s, &mut l.columns),
-            _ => ()
+            State::BeforeColumnBegin => if past_column_end < l.s.len() { self.add_column(past_column_end, l.s.len(), '\0', l.s, &mut l.columns); },
         }
     }
 }
