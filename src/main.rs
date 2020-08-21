@@ -17,6 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut separators : Vec<char> = vec![' '];
     let mut new_column_separators : Vec<char> = vec![];
     let mut lines: Vec<LineDescr> = Vec::new();
+    let mut line_starts_to_ignore : Vec<String> = vec![];
     let mut fmtr = Formatter::new();
     
     let mut out_file : Option<&String>  = None;
@@ -67,6 +68,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                if let Some(seps) = arg_it.next() {
                    separators = seps.chars().collect();
                }
+           }else if arg == "--line_start_to_ignore" {
+               if let Some(ignore) = arg_it.next() {
+                    line_starts_to_ignore.push(ignore.clone());
+               }
            }else if arg == "--non_matched_as_is" {
                non_matched_as_is = true;
            }else if arg == "--sep_config" {
@@ -87,6 +92,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     fmtr.set_separators(&separators);
     fmtr.set_new_column_separators(&new_column_separators);
+    fmtr.set_line_starts_to_ignore(line_starts_to_ignore);
 
     let mut src : Box<dyn std::io::BufRead> = if src_file.is_some() {
             let f = std::fs::File::open(src_file.unwrap());

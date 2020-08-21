@@ -276,14 +276,15 @@ pub struct Formatter
 {
     columns : Vec<usize>,
     tracker : ColumnTracker,
-    total_size : usize
+    total_size : usize,
+    line_starts_to_ignore : Vec<String>,
 }
 
 impl Formatter
 {
     pub fn new()->Formatter
     {
-        Formatter{columns:Vec::new(), tracker : ColumnTracker::new(), total_size: 0}
+        Formatter{columns:Vec::new(), tracker : ColumnTracker::new(), total_size: 0, line_starts_to_ignore : Vec::new()}
     }
 
     pub fn set_separators(&mut self, seps :&[char])
@@ -296,6 +297,10 @@ impl Formatter
     {
        self.tracker.seps_new_column.extend_from_slice(seps); 
        self.tracker.seps_new_column.sort();
+    }
+
+    pub fn set_line_starts_to_ignore(&mut self, vals : Vec<String>) {
+        self.line_starts_to_ignore = vals;
     }
 
     pub fn add_boundary(&mut self, bnd : Boundary, bt : BoundType)
@@ -336,10 +341,21 @@ impl Formatter
             InsideColumn
         }
         self.tracker.reset();
+        let mut ignore = false;
+        let mut first_non_white = true;
+
         let mut column_begin = 0;
         let mut past_column_end = 0;
         let mut s = State::BeforeColumnBegin;
         for (off,v) in l.s.char_indices(){
+            if first_non_white && !v.is_ascii_whitespace() {
+                first_non_white = false;
+                let first = &(l.s[off..]);
+                if self.line_starts_to_ignore.iter().any(|s|first.starts_with(s)) {
+                    ignore = true;
+                    break;
+                }
+            }
             s = match s {
                 State::BeforeColumnBegin => if self.tracker.is_column_begin(v) {column_begin = off; State::InsideColumn} else {State::BeforeColumnBegin},
                 State::InsideColumn => if self.tracker.is_column_end(v) {
@@ -352,9 +368,12 @@ impl Formatter
             }
         }
 
-        match s {
-            State::InsideColumn => self.add_column(column_begin, l.s.len(), '\0', l.s, &mut l.columns),
-            State::BeforeColumnBegin => if past_column_end < l.s.len() { self.add_column(past_column_end, l.s.len(), '\0', l.s, &mut l.columns); },
+
+        if !ignore {
+            match s {
+                State::InsideColumn => self.add_column(column_begin, l.s.len(), '\0', l.s, &mut l.columns),
+                State::BeforeColumnBegin => if past_column_end < l.s.len() { self.add_column(past_column_end, l.s.len(), '\0', l.s, &mut l.columns); },
+            }
         }
     }
 }
@@ -424,7 +443,7 @@ impl<'a> Printer<'a>{
 
     pub fn format_line(&self, l : &LineDescr) -> Option<String>
     {
-        if self.non_matched_as_is && l.columns.len() != self.fmt.columns.len() {
+        if (self.non_matched_as_is && l.columns.len() != self.fmt.columns.len()) || l.columns.is_empty() {
             return Some(l.s.to_string());
         }
         
