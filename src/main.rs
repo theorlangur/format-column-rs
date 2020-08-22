@@ -1,6 +1,40 @@
 mod column_tools;
 use std::error::Error;
 
+enum AutoMode {
+    SimpleSpace, //space separated columns
+    SimpleComma, //comma separated, space as a non-new column symbol
+    CLike(Option<char>, Option<char>)        //ignores "", '', ignores lines starting with //, depending on what comes first {} or () tries to format inside there
+}
+
+fn auto_analyze_cpp(s :& str) -> Option<AutoMode> {
+    let mut o : Option<char> = None;
+    let mut c : Option<char> = None;
+
+    if let Some(nonwhite) = s.find(|c:char|!c.is_ascii_whitespace()) {
+        match s[nonwhite..].chars().next().unwrap() {
+            '{' => {o = Some('{'); c = Some('}')},
+            '(' => {o = Some('('); c = Some(')')},
+            _ => return None,
+        }
+    }else
+    {
+        return None;
+    }
+
+    Some(AutoMode::CLike(o, c))
+}
+
+fn auto_analyze(s :& str) -> AutoMode {
+    if let Some(mode) = auto_analyze_cpp(s) {
+        mode
+    }else if let Some(_) = s.find(',') {
+        AutoMode::SimpleComma
+    }else {
+        AutoMode::SimpleSpace
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     
     use column_tools::LineDescr;
@@ -28,6 +62,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut print_fill_count : u8 = 0;
     let mut print_join : String = String::new();
     let mut non_matched_as_is = false;
+    let mut auto_config = false;
 
     let mut sep_cfgs : Vec<SeparatorConfig> = vec![];
 
@@ -74,6 +109,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                }
            }else if arg == "--non_matched_as_is" {
                non_matched_as_is = true;
+           }else if arg == "--auto" {
+               auto_config = true;
            }else if arg == "--sep_config" {
                if let Some(cfg_str) = arg_it.next() {
                    if let Ok(cfg) = cfg_str.parse::<SeparatorConfig>() {
@@ -90,8 +127,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    fmtr.set_separators(&separators);
-    fmtr.set_new_column_separators(&new_column_separators);
+    fmtr.set_separators(separators);
+    fmtr.set_new_column_separators(new_column_separators);
     fmtr.set_line_starts_to_ignore(line_starts_to_ignore);
 
     let mut src : Box<dyn std::io::BufRead> = if src_file.is_some() {
@@ -104,7 +141,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         }else{
             Box::new(std::io::BufReader::new(std::io::stdin()))
         };
-    
+
+    let mut first_string : Option<String> = None;
     let mut lines_str : Vec<String> = vec![];
     loop  
     {
@@ -112,7 +150,51 @@ fn main() -> Result<(), Box<dyn Error>> {
         if src.read_line(&mut l)? <= 0 {
             break;
         } 
+        if first_string.is_none() {
+            first_string = Some(l.clone());
+        }
         lines_str.push(l.trim_end().to_string());
+    }
+
+    if auto_config && first_string.is_some() {
+        fmtr.clear();
+        sep_cfgs.clear();
+        align = Align::Left;
+        non_matched_as_is = false;
+        print_fill = ' ';
+        print_fill_count = 0;
+        print_join = String::new();
+
+        match auto_analyze(&first_string.unwrap()) {
+            AutoMode::SimpleSpace => {
+                fmtr.set_separators(vec![' ']);
+            },
+            AutoMode::SimpleComma => {
+                fmtr.set_separators(vec![',']);
+                fmtr.set_new_column_separators(vec![',', ' ']);
+                print_join = String::from(", ");
+            },
+            AutoMode::CLike(open, close) => {
+                let mut seps : Vec<char> = Vec::with_capacity(2);
+                seps.push(',');
+                fmtr.set_new_column_separators(vec![',', ' ']);
+                fmtr.set_line_starts_to_ignore(vec!["//".to_string()]);
+                fmtr.add_boundary(Boundary::new_sym('"', 1), column_tools::BoundType::Exclude);
+                //fmtr.add_boundary(Boundary::new_asym('<', '>', 1), column_tools::BoundType::Exclude);
+                if let Some(o) = open {
+                    if let Some(c) = close {
+                        seps.push(c);
+                        fmtr.add_boundary(Boundary::new_asym(o, c, 1), column_tools::BoundType::Include);
+                    }else{
+                        fmtr.add_boundary(Boundary::new_sym(o, 1), column_tools::BoundType::Include);
+                    }
+                }
+                fmtr.set_separators(seps);
+                sep_cfgs.push(",: :1".parse::<SeparatorConfig>()?);
+                non_matched_as_is = true;
+            },
+        }
+
     }
     
     lines.reserve(lines_str.len());

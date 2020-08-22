@@ -137,6 +137,14 @@ pub struct Boundary
 
 impl Boundary
 {
+    pub fn new_sym(c :char, lim : i16) -> Boundary {
+        Boundary{open : c, close : None, lim, lim_orig : lim}
+    }
+
+    pub fn new_asym(o :char, c :char, lim : i16) -> Boundary {
+        Boundary{open : o, close : Some(c), lim, lim_orig : lim}
+    }
+
     pub fn reset(&mut self)
     {
         self.lim = self.lim_orig;
@@ -144,24 +152,24 @@ impl Boundary
     
     pub fn check(&mut self, c : char) -> (bool, bool)
     {
+        let mut begin_or_end = false;
+        let mut in_bound = self.lim <= 0;
+
         if c == self.open {
+            begin_or_end = true;
             if self.close.is_none() && self.lim != self.lim_orig {
                 self.lim += 1;
             }else{
                 self.lim -= 1;
+                in_bound = self.lim <= 0;
             }
-                
-            (true, self.lim <= 0)
         }else if let Some(cl) = self.close {
             if cl == c {
                 self.lim += 1;
-                (true, self.lim <= 0)
-            }else {
-                (false, self.lim <= 0)
+                begin_or_end = true;
             }
-        }else {
-            (false, self.lim <= 0)
         }
+        (begin_or_end, in_bound)
     }
 }
 
@@ -287,20 +295,37 @@ impl Formatter
         Formatter{columns:Vec::new(), tracker : ColumnTracker::new(), total_size: 0, line_starts_to_ignore : Vec::new()}
     }
 
-    pub fn set_separators(&mut self, seps :&[char])
+    pub fn clear(&mut self)
     {
-       self.tracker.seps.extend_from_slice(seps); 
+        self.set_separators(vec![]);
+        self.set_new_column_separators(vec![]);
+        self.set_line_starts_to_ignore(vec![]);
+        self.clear_boundaries(BoundType::Include);
+        self.clear_boundaries(BoundType::Exclude);
+    }
+
+    pub fn set_separators(&mut self, seps :Vec<char>)
+    {
+       self.tracker.seps = seps; 
        self.tracker.seps.sort();
     }
 
-    pub fn set_new_column_separators(&mut self, seps :&[char])
+    pub fn set_new_column_separators(&mut self, seps :Vec<char>)
     {
-       self.tracker.seps_new_column.extend_from_slice(seps); 
+       self.tracker.seps_new_column = seps; 
        self.tracker.seps_new_column.sort();
     }
 
     pub fn set_line_starts_to_ignore(&mut self, vals : Vec<String>) {
         self.line_starts_to_ignore = vals;
+    }
+
+    pub fn clear_boundaries(&mut self, bt : BoundType)
+    {
+        match bt {
+            BoundType::Include => &mut self.tracker.include,
+            BoundType::Exclude => &mut self.tracker.exclude,
+        }.clear();
     }
 
     pub fn add_boundary(&mut self, bnd : Boundary, bt : BoundType)
