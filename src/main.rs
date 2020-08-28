@@ -1,4 +1,6 @@
 mod column_tools;
+mod test_ref;
+
 use std::error::Error;
 
 enum AutoMode {
@@ -8,8 +10,8 @@ enum AutoMode {
 }
 
 fn auto_analyze_cpp(s :& str) -> Option<AutoMode> {
-    let mut o : Option<char> = None;
-    let mut c : Option<char> = None;
+    let o;
+    let c;
 
     if let Some(nonwhite) = s.find(|c:char|!c.is_ascii_whitespace()) {
         match s[nonwhite..].chars().next().unwrap() {
@@ -45,6 +47,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     use column_tools::SeparatorConfig;
 
     use std::io::Write;
+
+    //test_ref::test_ref();
+    //test_ref::test_ref2();
     
     let args : Vec<String> = std::env::args().collect();
 
@@ -63,6 +68,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut print_join : String = String::new();
     let mut non_matched_as_is = false;
     let mut auto_config = false;
+    let mut add_pre_start = false;
 
     let mut sep_cfgs : Vec<SeparatorConfig> = vec![];
 
@@ -111,6 +117,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                non_matched_as_is = true;
            }else if arg == "--auto" {
                auto_config = true;
+           }else if arg == "--prestart" {
+               add_pre_start = true;
            }else if arg == "--sep_config" {
                if let Some(cfg_str) = arg_it.next() {
                    if let Ok(cfg) = cfg_str.parse::<SeparatorConfig>() {
@@ -130,6 +138,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     fmtr.set_separators(separators);
     fmtr.set_new_column_separators(new_column_separators);
     fmtr.set_line_starts_to_ignore(line_starts_to_ignore);
+    fmtr.set_add_pre_start(add_pre_start);
 
     let mut src : Box<dyn std::io::BufRead> = if src_file.is_some() {
             let f = std::fs::File::open(src_file.unwrap());
@@ -190,6 +199,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
                 fmtr.set_separators(seps);
+                fmtr.set_add_pre_start(true);
                 sep_cfgs.push(",: :1".parse::<SeparatorConfig>()?);
                 non_matched_as_is = true;
             },
