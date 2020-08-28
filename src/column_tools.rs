@@ -280,19 +280,36 @@ impl ColumnTracker
     }
 }
 
+trait LineAnalyzer
+{
+    fn analyze_line<'a>(&mut self, fmt :&mut Formatter, l: &mut LineDescr<'a>);
+}
+
+pub struct SepLineAnalyzer
+{
+    
+}
+
+impl LineAnalyzer for SepLineAnalyzer
+{
+    
+    fn analyze_line<'a>(&mut self, fmt :&mut Formatter, l: &mut LineDescr<'a>){}
+}
+
 pub struct Formatter
 {
     columns : Vec<usize>,
     tracker : ColumnTracker,
     total_size : usize,
     line_starts_to_ignore : Vec<String>,
+    add_pre_start : bool,
 }
 
 impl Formatter
 {
     pub fn new()->Formatter
     {
-        Formatter{columns:Vec::new(), tracker : ColumnTracker::new(), total_size: 0, line_starts_to_ignore : Vec::new()}
+        Formatter{columns:Vec::new(), tracker : ColumnTracker::new(), total_size: 0, line_starts_to_ignore : Vec::new(), add_pre_start : false}
     }
 
     pub fn clear(&mut self)
@@ -302,6 +319,12 @@ impl Formatter
         self.set_line_starts_to_ignore(vec![]);
         self.clear_boundaries(BoundType::Include);
         self.clear_boundaries(BoundType::Exclude);
+        self.add_pre_start = false;
+    }
+
+    pub fn set_add_pre_start(&mut self, val : bool)
+    {
+        self.add_pre_start = val;
     }
 
     pub fn set_separators(&mut self, seps :Vec<char>)
@@ -382,7 +405,13 @@ impl Formatter
                 }
             }
             s = match s {
-                State::BeforeColumnBegin => if self.tracker.is_column_begin(v) {column_begin = off; State::InsideColumn} else {State::BeforeColumnBegin},
+                State::BeforeColumnBegin => if self.tracker.is_column_begin(v) {
+                    column_begin = off; 
+                    if self.add_pre_start && l.columns.is_empty() {
+                        self.add_column(0, off, '\0', l.s, &mut l.columns);
+                    }
+                    State::InsideColumn
+                } else {State::BeforeColumnBegin},
                 State::InsideColumn => if self.tracker.is_column_end(v) {
                         self.add_column(column_begin, off, v, l.s, &mut l.columns);
                         past_column_end = off + 1;
