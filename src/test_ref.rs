@@ -107,3 +107,40 @@ pub fn test_ref()
         dest.write(item.s.as_bytes()).unwrap();
     }
 }
+
+use std::collections::HashMap;
+struct LambdaTest<T>
+{
+    cb : T,
+    hash : HashMap<i32,i32>
+}
+
+impl<T> LambdaTest<T>
+where
+    T: Fn(i32)->i32
+{
+    fn new(cb:T)->Self
+    {
+        Self{cb, hash : HashMap::new()}
+    }
+
+    fn val(&mut self, v: i32)->&i32
+    {
+        let hsh = &mut self.hash;
+        let cb = &self.cb;
+        hsh
+            //.hash
+            .entry(v)
+            .or_insert_with(||(cb)(v))
+    }
+}
+
+pub fn clos_test() -> Box<dyn Fn(i32)->i32>
+{
+    let mut a = 1;
+    a = a + 2;
+    let add = move |x:i32|->i32{x+a};
+    let y = add(3);
+
+    Box::new(add)
+}
