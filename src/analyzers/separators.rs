@@ -87,7 +87,7 @@ impl std::str::FromStr for BoundType {
     }
 }
 
-pub struct SepLineAnalyzer
+pub struct Analyzer
 {
     seps : Vec<char>,
     seps_new_column : Vec<char>,
@@ -95,10 +95,10 @@ pub struct SepLineAnalyzer
     exclude : Vec<Boundary>
 }
 
-impl SepLineAnalyzer {
-    pub fn new() -> SepLineAnalyzer
+impl Analyzer {
+    pub fn new() -> Analyzer
     {
-        SepLineAnalyzer{seps: Vec::new(), seps_new_column: Vec::new(), include : Vec::new(), exclude : Vec::new()}
+        Analyzer{seps: Vec::new(), seps_new_column: Vec::new(), include : Vec::new(), exclude : Vec::new()}
     }
     
     pub fn reset(&mut self)
@@ -182,7 +182,7 @@ impl SepLineAnalyzer {
     }
 }
 
-impl LineAnalyzer for SepLineAnalyzer
+impl LineAnalyzer for Analyzer
 {
     fn clear(&mut self)
     {
@@ -218,9 +218,6 @@ impl LineAnalyzer for SepLineAnalyzer
             s = match s {
                 State::BeforeColumnBegin => if self.is_column_begin(v) {
                     column_begin = off; 
-                    if fmt.keep_indent() && !l.any_columns() {
-                        fmt.add_column(0, off, '\0', l);
-                    }
                     State::InsideColumn
                 } else {State::BeforeColumnBegin},
                 State::InsideColumn => if self.is_column_end(v) {

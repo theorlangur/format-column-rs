@@ -7,6 +7,7 @@ use std::error::Error;
 enum AutoMode {
     SimpleSpace, //space separated columns
     SimpleComma, //comma separated, space as a non-new column symbol
+    SimpleAssignment,
     CLike(Option<char>, Option<char>)        //ignores "", '', ignores lines starting with //, depending on what comes first {} or () tries to format inside there
 }
 
@@ -18,7 +19,13 @@ fn auto_analyze_cpp(s :& str) -> Option<AutoMode> {
         match s[nonwhite..].chars().next().unwrap() {
             '{' => {o = Some('{'); c = Some('}')},
             '(' => {o = Some('('); c = Some(')')},
-            _ => return None,
+            _ => {
+                if let Some(_) = s[nonwhite..].find('=') {
+                   return Some(AutoMode::SimpleAssignment);
+                }else {
+                   return None;
+                }
+            },
         }
     }else
     {
@@ -49,7 +56,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     
     use analyzers::separators::Boundary;
     use analyzers::separators::BoundType;
-    use analyzers::separators::SepLineAnalyzer;
+    
+    use analyzers::separators::Analyzer as SepLineAnalyzer;
+    use analyzers::assignment::Analyzer as AssignmentAnalyzer;
 
     use std::io::Write;
 
@@ -57,6 +66,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     //test_ref::test_ref2();
 
     let mut separator_analyzer = SepLineAnalyzer::new();
+    let mut assignment_analyzer = AssignmentAnalyzer{};
     
     let args : Vec<String> = std::env::args().collect();
 
@@ -195,6 +205,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 print_join = String::from(", ");
                 line_analyzer = &mut separator_analyzer;
             },
+            AutoMode::SimpleAssignment => {
+                non_matched_as_is = true;
+                fmtr.set_add_pre_start(true);
+                sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
+                line_analyzer = &mut assignment_analyzer;
+            },
             AutoMode::CLike(open, close) => {
                 let mut seps : Vec<char> = Vec::with_capacity(2);
                 seps.push(',');
@@ -225,7 +241,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     lines.reserve(lines_str.len());
     lines_str.iter().for_each(|l|{
        let mut line = LineDescr::new(&l);
-       line_analyzer.analyze_line(&mut fmtr, &mut line);
+       fmtr.analyze_line(line_analyzer, &mut line);
+       //line_analyzer.analyze_line(&mut fmtr, &mut line);
        lines.push(line); 
     });
     

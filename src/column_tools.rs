@@ -1,3 +1,4 @@
+use crate::analyzers::LineAnalyzer;
 /****************************************************
  * AddToString trait
  * 
@@ -125,8 +126,6 @@ impl<'a> LineDescr<'a>{
     {
         LineDescr{s, columns : Vec::new()}
     }
-    
-    pub fn any_columns(&self) -> bool {!self.columns.is_empty()}
 }
 
 pub struct Formatter
@@ -171,6 +170,11 @@ impl Formatter
 
     pub fn add_column<'b>(&mut self, begin:usize, end:usize, ch : char, l : &mut LineDescr<'b>)
     {
+        if self.add_pre_start && l.columns.is_empty() {
+            l.columns.push(Column{col : &l.s[..], sep : '\0'});
+            self.check_biggest_column(0, 0);
+        }
+        
         let cnt = end - begin;
         l.columns.push(Column{col : &l.s[begin..end], sep : ch});
         self.check_biggest_column(l.columns.len() - 1, cnt);
@@ -186,7 +190,20 @@ impl Formatter
         self.line_starts_to_ignore.iter().any(|s|l.starts_with(s))
     }
 
-    pub fn keep_indent(&self) -> bool {self.add_pre_start}
+    pub fn analyze_line<'a>(&mut self, analyzer :&mut dyn LineAnalyzer, l: &mut LineDescr<'a>)
+    {
+        analyzer.analyze_line(self, l);
+        if !l.columns.is_empty() && self.add_pre_start {
+            let ps = l.s.as_ptr();
+            let pf = l.columns[1].col.as_ptr();
+            let first = pf as usize - ps as usize;
+            
+            l.columns[0] = Column{col : &l.s[..first], sep : '\0'};
+            if self.columns[0] < first {
+                self.columns[0] = first;
+            }
+        }
+    }
 }
 
 pub struct SeparatorConfig

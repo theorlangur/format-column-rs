@@ -2,6 +2,7 @@ use crate::column_tools::Formatter;
 use crate::column_tools::LineDescr;
 
 pub mod separators;
+pub mod assignment;
 
 pub trait LineAnalyzer
 {
