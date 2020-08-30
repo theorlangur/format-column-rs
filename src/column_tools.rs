@@ -116,7 +116,7 @@ struct Column<'a>
 
 pub struct LineDescr<'a>
 {
-    s : &'a str,
+    pub s : &'a str,
     columns : Vec<Column<'a>>
 }
 
@@ -125,181 +125,13 @@ impl<'a> LineDescr<'a>{
     {
         LineDescr{s, columns : Vec::new()}
     }
-}
-
-pub struct Boundary
-{
-    open : char,//char that 'opens' the block, also for simple separators
-    close : Option<char>, //char that 'closes' the block
-    lim : i16,
-    lim_orig : i16
-}
-
-impl Boundary
-{
-    pub fn new_sym(c :char, lim : i16) -> Boundary {
-        Boundary{open : c, close : None, lim, lim_orig : lim}
-    }
-
-    pub fn new_asym(o :char, c :char, lim : i16) -> Boundary {
-        Boundary{open : o, close : Some(c), lim, lim_orig : lim}
-    }
-
-    pub fn reset(&mut self)
-    {
-        self.lim = self.lim_orig;
-    }
     
-    pub fn check(&mut self, c : char) -> (bool, bool)
-    {
-        let mut begin_or_end = false;
-        let mut in_bound = self.lim <= 0;
-
-        if c == self.open {
-            begin_or_end = true;
-            if self.close.is_none() && self.lim != self.lim_orig {
-                self.lim += 1;
-            }else{
-                self.lim -= 1;
-                in_bound = self.lim <= 0;
-            }
-        }else if let Some(cl) = self.close {
-            if cl == c {
-                self.lim += 1;
-                begin_or_end = true;
-            }
-        }
-        (begin_or_end, in_bound)
-    }
-}
-
-impl std::str::FromStr for Boundary {
-    type Err = ParseErr;
-
-    fn from_str(s :&str) -> Result<Self, Self::Err>
-    {
-        if let Some(last_num_idx) = s.find(|c|c < '0' || c > '9') {
-           let lim_orig = s[..last_num_idx].parse::<i16>()?;
-           let rest = &s[last_num_idx..];
-           if rest.len() > 0 {
-            let mut chrs = rest.chars();
-            let open_c = chrs.next().unwrap(); 
-            let res = Boundary{open : open_c, close : chrs.next(), lim_orig, lim : lim_orig};
-            return Ok(res);
-           }
-        }
-        
-        Err(Self::Err{})
-    }
-}
-
-
-pub enum BoundType
-{
-    Include,
-    Exclude
-}
-
-impl std::str::FromStr for BoundType {
-    type Err = ParseErr;
-
-    fn from_str(s :&str) -> Result<Self, Self::Err>
-    {
-       match s {
-           "include" => Ok(BoundType::Include),
-           "exclude" => Ok(BoundType::Exclude),
-           &_ => Err(Self::Err{}),
-       }
-    }
-}
-
-pub struct ColumnTracker
-{
-    seps : Vec<char>,
-    seps_new_column : Vec<char>,
-    include : Vec<Boundary>,
-    exclude : Vec<Boundary>
-}
-
-impl ColumnTracker
-{
-    pub fn new() -> ColumnTracker
-    {
-        ColumnTracker{seps: Vec::new(), seps_new_column: Vec::new(), include : Vec::new(), exclude : Vec::new()}
-    }
-
-    pub fn reset(&mut self)
-    {
-        self.include.iter_mut().for_each(|x|x.reset());
-        self.exclude.iter_mut().for_each(|x|x.reset());
-    }
-
-    fn check_bounds(&mut self, c : char) -> bool
-    {
-        let mut res = true;
-        for s in self.include.iter_mut() {
-            let (_, allowed) = s.check(c);
-            if !allowed {
-                res = false;
-            }
-        }
-
-        for s in self.exclude.iter_mut() {
-            let (_, ignore) = s.check(c);
-            if ignore {
-                res = false;
-            }
-        }
-
-        res
-    }
-
-    pub fn is_column_end(&mut self, c : char) -> bool
-    {
-        let mut res = false;
-        if let Result::Ok(_) = self.seps.binary_search(&c) {
-            res = true;
-        }
-
-        if self.check_bounds(c) {
-            res
-        }else {
-            false
-        }
-    }
-
-    pub fn is_column_begin(&mut self, c : char) -> bool
-    {
-        self.check_bounds(c);
-        let seps = if self.seps_new_column.is_empty() { &self.seps }else{ &self.seps_new_column };
-        if let Result::Ok(_) = seps.binary_search(&c) {
-            false //among separators? - no the column begin
-        }else{
-            true //some other symbol - yes, can be a column begin
-        }
-    }
-}
-
-trait LineAnalyzer
-{
-    fn analyze_line<'a>(&mut self, fmt :&mut Formatter, l: &mut LineDescr<'a>);
-}
-
-pub struct SepLineAnalyzer
-{
-    
-}
-
-impl LineAnalyzer for SepLineAnalyzer
-{
-    
-    fn analyze_line<'a>(&mut self, fmt :&mut Formatter, l: &mut LineDescr<'a>){}
+    pub fn any_columns(&self) -> bool {!self.columns.is_empty()}
 }
 
 pub struct Formatter
 {
     columns : Vec<usize>,
-    tracker : ColumnTracker,
     total_size : usize,
     line_starts_to_ignore : Vec<String>,
     add_pre_start : bool,
@@ -307,18 +139,14 @@ pub struct Formatter
 
 impl Formatter
 {
-    pub fn new()->Formatter
+    pub fn new()->Self
     {
-        Formatter{columns:Vec::new(), tracker : ColumnTracker::new(), total_size: 0, line_starts_to_ignore : Vec::new(), add_pre_start : false}
+        Self{columns:Vec::new(), total_size: 0, line_starts_to_ignore : Vec::new(), add_pre_start : false}
     }
 
     pub fn clear(&mut self)
     {
-        self.set_separators(vec![]);
-        self.set_new_column_separators(vec![]);
         self.set_line_starts_to_ignore(vec![]);
-        self.clear_boundaries(BoundType::Include);
-        self.clear_boundaries(BoundType::Exclude);
         self.add_pre_start = false;
     }
 
@@ -327,36 +155,8 @@ impl Formatter
         self.add_pre_start = val;
     }
 
-    pub fn set_separators(&mut self, seps :Vec<char>)
-    {
-       self.tracker.seps = seps; 
-       self.tracker.seps.sort();
-    }
-
-    pub fn set_new_column_separators(&mut self, seps :Vec<char>)
-    {
-       self.tracker.seps_new_column = seps; 
-       self.tracker.seps_new_column.sort();
-    }
-
     pub fn set_line_starts_to_ignore(&mut self, vals : Vec<String>) {
         self.line_starts_to_ignore = vals;
-    }
-
-    pub fn clear_boundaries(&mut self, bt : BoundType)
-    {
-        match bt {
-            BoundType::Include => &mut self.tracker.include,
-            BoundType::Exclude => &mut self.tracker.exclude,
-        }.clear();
-    }
-
-    pub fn add_boundary(&mut self, bnd : Boundary, bt : BoundType)
-    {
-        match bt {
-            BoundType::Include => &mut self.tracker.include,
-            BoundType::Exclude => &mut self.tracker.exclude,
-        }.push(bnd);
     }
 
     fn check_biggest_column(&mut self, idx : usize, sz :usize)
@@ -369,11 +169,11 @@ impl Formatter
         }
     }
 
-    fn add_column<'a>(&mut self, begin:usize, end:usize, ch : char, s : &'a str, cols :&mut Vec<Column<'a>>)
+    pub fn add_column<'b>(&mut self, begin:usize, end:usize, ch : char, l : &mut LineDescr<'b>)
     {
         let cnt = end - begin;
-        cols.push(Column{col : &s[begin..end], sep : ch});
-        self.check_biggest_column(cols.len() - 1, cnt);
+        l.columns.push(Column{col : &l.s[begin..end], sep : ch});
+        self.check_biggest_column(l.columns.len() - 1, cnt);
     }
 
     pub fn finish(&mut self)
@@ -382,54 +182,11 @@ impl Formatter
         
     }
 
-    pub fn analyze_line<'a>(&mut self, l: &mut LineDescr<'a>)
-    {
-        enum State{
-            BeforeColumnBegin,
-            InsideColumn
-        }
-        self.tracker.reset();
-        let mut ignore = false;
-        let mut first_non_white = true;
-
-        let mut column_begin = 0;
-        let mut past_column_end = 0;
-        let mut s = State::BeforeColumnBegin;
-        for (off,v) in l.s.char_indices(){
-            if first_non_white && !v.is_ascii_whitespace() {
-                first_non_white = false;
-                let first = &(l.s[off..]);
-                if self.line_starts_to_ignore.iter().any(|s|first.starts_with(s)) {
-                    ignore = true;
-                    break;
-                }
-            }
-            s = match s {
-                State::BeforeColumnBegin => if self.tracker.is_column_begin(v) {
-                    column_begin = off; 
-                    if self.add_pre_start && l.columns.is_empty() {
-                        self.add_column(0, off, '\0', l.s, &mut l.columns);
-                    }
-                    State::InsideColumn
-                } else {State::BeforeColumnBegin},
-                State::InsideColumn => if self.tracker.is_column_end(v) {
-                        self.add_column(column_begin, off, v, l.s, &mut l.columns);
-                        past_column_end = off + 1;
-                        State::BeforeColumnBegin
-                    }else{
-                        State::InsideColumn
-                    }
-            }
-        }
-
-
-        if !ignore {
-            match s {
-                State::InsideColumn => self.add_column(column_begin, l.s.len(), '\0', l.s, &mut l.columns),
-                State::BeforeColumnBegin => if past_column_end < l.s.len() { self.add_column(past_column_end, l.s.len(), '\0', l.s, &mut l.columns); },
-            }
-        }
+    pub fn check_line_start_to_ignore(&self, l: &str) -> bool{
+        self.line_starts_to_ignore.iter().any(|s|l.starts_with(s))
     }
+
+    pub fn keep_indent(&self) -> bool {self.add_pre_start}
 }
 
 pub struct SeparatorConfig
@@ -481,9 +238,9 @@ pub struct Printer<'a>
 }
 
 impl<'a> Printer<'a>{
-    pub fn new(fmt : &'a Formatter, align:Align, fill : char, fill_count : u8, join : String, non_matched_as_is : bool) -> Printer
+    pub fn new(fmt : &'a Formatter, align:Align, fill : char, fill_count : u8, join : String, non_matched_as_is : bool) -> Self
     {
-        Printer{fill, align, fmt, fill_count, join, non_matched_as_is, sep_joins : Vec::new()}
+        Self{fill, align, fmt, fill_count, join, non_matched_as_is, sep_joins : Vec::new()}
     }
 
     pub fn set_separator_configs(&mut self, cfgs : Vec<SeparatorConfig>) {

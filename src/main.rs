@@ -1,4 +1,5 @@
 mod column_tools;
+mod analyzers;
 mod test_ref;
 
 use std::error::Error;
@@ -43,13 +44,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     use column_tools::Formatter;
     use column_tools::Printer;
     use column_tools::Align;
-    use column_tools::Boundary;
     use column_tools::SeparatorConfig;
+    use analyzers::LineAnalyzer;
+    
+    use analyzers::separators::Boundary;
+    use analyzers::separators::BoundType;
+    use analyzers::separators::SepLineAnalyzer;
 
     use std::io::Write;
 
     //test_ref::test_ref();
     //test_ref::test_ref2();
+
+    let mut separator_analyzer = SepLineAnalyzer::new();
     
     let args : Vec<String> = std::env::args().collect();
 
@@ -101,8 +108,8 @@ fn main() -> Result<(), Box<dyn Error>> {
            }else if arg == "--include" || arg == "--exclude" {
                if let Some(bound_str) = arg_it.next() {
                    if let Ok(bnd) = bound_str.parse::<Boundary>() {
-                        let bt = (&arg[2..]).parse::<column_tools::BoundType>()?;
-                        fmtr.add_boundary(bnd, bt); 
+                        let bt = (&arg[2..]).parse::<BoundType>()?;
+                        separator_analyzer.add_boundary(bnd, bt); 
                    }
                }
            }else if arg == "--seps" {
@@ -135,8 +142,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    fmtr.set_separators(separators);
-    fmtr.set_new_column_separators(new_column_separators);
+    separator_analyzer.set_separators(separators);
+    separator_analyzer.set_new_column_separators(new_column_separators);
     fmtr.set_line_starts_to_ignore(line_starts_to_ignore);
     fmtr.set_add_pre_start(add_pre_start);
 
@@ -165,7 +172,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         lines_str.push(l.trim_end().to_string());
     }
 
+    let line_analyzer : &mut dyn LineAnalyzer;
+
     if auto_config && first_string.is_some() {
+        separator_analyzer.clear();
         fmtr.clear();
         sep_cfgs.clear();
         align = Align::Left;
@@ -176,41 +186,46 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         match auto_analyze(&first_string.unwrap()) {
             AutoMode::SimpleSpace => {
-                fmtr.set_separators(vec![' ']);
+                separator_analyzer.set_separators(vec![' ']);
+                line_analyzer = &mut separator_analyzer;
             },
             AutoMode::SimpleComma => {
-                fmtr.set_separators(vec![',']);
-                fmtr.set_new_column_separators(vec![',', ' ']);
+                separator_analyzer.set_separators(vec![',']);
+                separator_analyzer.set_new_column_separators(vec![',', ' ']);
                 print_join = String::from(", ");
+                line_analyzer = &mut separator_analyzer;
             },
             AutoMode::CLike(open, close) => {
                 let mut seps : Vec<char> = Vec::with_capacity(2);
                 seps.push(',');
-                fmtr.set_new_column_separators(vec![',', ' ']);
                 fmtr.set_line_starts_to_ignore(vec!["//".to_string()]);
-                fmtr.add_boundary(Boundary::new_sym('"', 1), column_tools::BoundType::Exclude);
-                //fmtr.add_boundary(Boundary::new_asym('<', '>', 1), column_tools::BoundType::Exclude);
+                separator_analyzer.set_new_column_separators(vec![',', ' ']);
+                separator_analyzer.add_boundary(Boundary::new_sym('"', 1), BoundType::Exclude);
+                //fmtr.add_boundary(Boundary::new_asym('<', '>', 1), BoundType::Exclude);
                 if let Some(o) = open {
                     if let Some(c) = close {
                         seps.push(c);
-                        fmtr.add_boundary(Boundary::new_asym(o, c, 1), column_tools::BoundType::Include);
+                        separator_analyzer.add_boundary(Boundary::new_asym(o, c, 1), BoundType::Include);
                     }else{
-                        fmtr.add_boundary(Boundary::new_sym(o, 1), column_tools::BoundType::Include);
+                        separator_analyzer.add_boundary(Boundary::new_sym(o, 1), BoundType::Include);
                     }
                 }
-                fmtr.set_separators(seps);
+                separator_analyzer.set_separators(seps);
                 fmtr.set_add_pre_start(true);
                 sep_cfgs.push(",: :1".parse::<SeparatorConfig>()?);
                 non_matched_as_is = true;
+                line_analyzer = &mut separator_analyzer;
             },
         }
-
+    }else
+    {
+        line_analyzer = &mut separator_analyzer;
     }
     
     lines.reserve(lines_str.len());
     lines_str.iter().for_each(|l|{
        let mut line = LineDescr::new(&l);
-       fmtr.analyze_line(&mut line);
+       line_analyzer.analyze_line(&mut fmtr, &mut line);
        lines.push(line); 
     });
     
