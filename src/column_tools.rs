@@ -192,16 +192,20 @@ impl Formatter
 
     pub fn analyze_line<'a>(&mut self, analyzer :&mut dyn LineAnalyzer, l: &mut LineDescr<'a>)
     {
-        analyzer.analyze_line(self, l);
-        if !l.columns.is_empty() && self.add_pre_start {
-            let ps = l.s.as_ptr();
-            let pf = l.columns[1].col.as_ptr();
-            let first = pf as usize - ps as usize;
-            
-            l.columns[0] = Column{col : &l.s[..first], sep : '\0'};
-            if self.columns[0] < first {
-                self.columns[0] = first;
+        if let Ok(_) = analyzer.analyze_line(self, l){
+            if !l.columns.is_empty() && self.add_pre_start {
+                let ps = l.s.as_ptr();
+                let pf = l.columns[1].col.as_ptr();
+                let first = pf as usize - ps as usize;
+                
+                l.columns[0] = Column{col : &l.s[..first], sep : '\0'};
+                if self.columns[0] < first {
+                    self.columns[0] = first;
+                }
             }
+        }else
+        {
+            l.columns.clear();
         }
     }
 }

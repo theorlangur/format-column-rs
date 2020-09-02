@@ -1,5 +1,6 @@
 use crate::column_tools::*;
 use super::LineAnalyzer;
+use super::AnalyzeErr;
 
 pub struct Boundary
 {
@@ -193,7 +194,7 @@ impl LineAnalyzer for Analyzer
     }
 
     
-    fn analyze_line<'a>(&mut self, fmt :&mut Formatter, l: &mut LineDescr<'a>)
+    fn analyze_line<'a>(&mut self, fmt :&mut Formatter, l: &mut LineDescr<'a>)->Result<(),AnalyzeErr>
     {
         enum State{
             BeforeColumnBegin,
@@ -237,5 +238,6 @@ impl LineAnalyzer for Analyzer
                 State::BeforeColumnBegin => if past_column_end < l.s.len() { fmt.add_column(past_column_end, l.s.len(), '\0', l); },
             }
         }
+        Ok(())
     }
 }
