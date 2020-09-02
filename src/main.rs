@@ -8,6 +8,7 @@ enum AutoMode {
     SimpleSpace, //space separated columns
     SimpleComma, //comma separated, space as a non-new column symbol
     SimpleAssignment,
+    FnDecl,
     CLike(Option<char>, Option<char>)        //ignores "", '', ignores lines starting with //, depending on what comes first {} or () tries to format inside there
 }
 
@@ -38,6 +39,8 @@ fn auto_analyze_cpp(s :& str) -> Option<AutoMode> {
 fn auto_analyze(s :& str) -> AutoMode {
     if let Some(mode) = auto_analyze_cpp(s) {
         mode
+    }else if let Some(_) = s.find('(') {
+        AutoMode::FnDecl
     }else if let Some(_) = s.find(',') {
         AutoMode::SimpleComma
     }else {
@@ -59,6 +62,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     
     use analyzers::separators::Analyzer as SepLineAnalyzer;
     use analyzers::assignment::Analyzer as AssignmentAnalyzer;
+    use analyzers::func_decl::Analyzer as FuncDeclAnalyzer;
 
     use std::io::Write;
 
@@ -67,6 +71,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut separator_analyzer = SepLineAnalyzer::new();
     let mut assignment_analyzer = AssignmentAnalyzer{};
+    let mut func_decl_analyzer = FuncDeclAnalyzer{};
     
     let args : Vec<String> = std::env::args().collect();
 
@@ -210,6 +215,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 fmtr.set_add_pre_start(true);
                 sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
                 line_analyzer = &mut assignment_analyzer;
+            },
+            AutoMode::FnDecl => {
+                non_matched_as_is = true;
+                fmtr.set_add_pre_start(true);
+                //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
+                line_analyzer = &mut func_decl_analyzer;
             },
             AutoMode::CLike(open, close) => {
                 let mut seps : Vec<char> = Vec::with_capacity(2);
