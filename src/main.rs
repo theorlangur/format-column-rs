@@ -9,6 +9,7 @@ enum AutoMode {
     SimpleComma, //comma separated, space as a non-new column symbol
     SimpleAssignment,
     FnDecl,
+    Xml,
     CLike(Option<char>, Option<char>)        //ignores "", '', ignores lines starting with //, depending on what comes first {} or () tries to format inside there
 }
 
@@ -39,6 +40,9 @@ fn auto_analyze_cpp(s :& str) -> Option<AutoMode> {
 fn auto_analyze(s :& str) -> AutoMode {
     if let Some(mode) = auto_analyze_cpp(s) {
         mode
+        //TODO: re-write this logic. Preference for FnDecl, then XML, then simple comma-separated
+    }else if let Some(_) = s.find('<') {
+        AutoMode::Xml
     }else if let Some(_) = s.find('(') {
         AutoMode::FnDecl
     }else if let Some(_) = s.find(',') {
@@ -63,6 +67,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     use analyzers::separators::Analyzer as SepLineAnalyzer;
     use analyzers::assignment::Analyzer as AssignmentAnalyzer;
     use analyzers::func_decl::Analyzer as FuncDeclAnalyzer;
+    use analyzers::xml_attr::Analyzer as XmlAttrAnalyzer;
 
     use std::io::Write;
 
@@ -72,6 +77,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut separator_analyzer = SepLineAnalyzer::new();
     let mut assignment_analyzer = AssignmentAnalyzer{};
     let mut func_decl_analyzer = FuncDeclAnalyzer{};
+    let mut xml_attr_analyzer = XmlAttrAnalyzer{};
     
     let args : Vec<String> = std::env::args().collect();
 
@@ -222,6 +228,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
                 line_analyzer = &mut func_decl_analyzer;
             },
+            AutoMode::Xml => {
+                non_matched_as_is = true;
+                fmtr.set_add_pre_start(true);
+                //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
+                line_analyzer = &mut xml_attr_analyzer;
+            },
             AutoMode::CLike(open, close) => {
                 let mut seps : Vec<char> = Vec::with_capacity(2);
                 seps.push(',');
@@ -253,7 +265,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     lines_str.iter().for_each(|l|{
        let mut line = LineDescr::new(&l);
        fmtr.analyze_line(line_analyzer, &mut line);
-       //line_analyzer.analyze_line(&mut fmtr, &mut line);
        lines.push(line); 
     });
     

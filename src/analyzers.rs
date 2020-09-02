@@ -4,6 +4,7 @@ use crate::column_tools::LineDescr;
 pub mod separators;
 pub mod assignment;
 pub mod func_decl;
+pub mod xml_attr;
 
 #[derive(Debug)]
 pub struct AnalyzeErr{

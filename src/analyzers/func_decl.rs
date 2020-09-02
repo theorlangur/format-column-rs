@@ -10,10 +10,6 @@ pub struct Analyzer {
 
 impl LineAnalyzer for Analyzer {
     
-    fn clear(&mut self)
-    {
-    }
-
     fn analyze_line<'a>(&mut self, fmt :&mut Formatter, l: &mut LineDescr<'a>)->Result<(),AnalyzeErr>
     {
         let paren_pos = l.s.sym('(')?;
