@@ -276,7 +276,9 @@ impl<'a> Printer<'a>{
     pub fn format_line(&self, l : &LineDescr) -> Option<String>
     {
         if (self.non_matched_as_is && l.columns.len() != self.fmt.columns.len()) || l.columns.is_empty() {
-            return Some(l.s.to_string());
+            let mut res = l.s.to_string();
+            res.push('\n');
+            return Some(res);
         }
         
         let mut res = String::with_capacity(self.fmt.total_size + self.fmt.columns.len() * (self.join.len() + self.fill_count as usize));

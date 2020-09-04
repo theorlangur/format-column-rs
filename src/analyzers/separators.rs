@@ -193,6 +193,11 @@ impl LineAnalyzer for Analyzer
         self.clear_boundaries(BoundType::Exclude);
     }
 
+    fn can_accept(&self, _s :&str)->Result<(),AnalyzeErr> 
+    {
+        //accept all
+        Ok(())
+    }
     
     fn analyze_line<'a>(&mut self, fmt :&mut Formatter, l: &mut LineDescr<'a>)->Result<(),AnalyzeErr>
     {

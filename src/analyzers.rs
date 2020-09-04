@@ -5,6 +5,7 @@ pub mod separators;
 pub mod assignment;
 pub mod func_decl;
 pub mod xml_attr;
+pub mod var_decl;
 
 #[derive(Debug)]
 pub struct AnalyzeErr{
@@ -23,6 +24,7 @@ impl std::error::Error for AnalyzeErr {
 pub trait LineAnalyzer
 {
     fn clear(&mut self){}
+    fn can_accept(&self, _s :&str)->Result<(),AnalyzeErr> {Err(AnalyzeErr{})}
     fn analyze_line<'a>(&mut self, _fmt :&mut Formatter, _l: &mut LineDescr<'a>)->Result<(),AnalyzeErr>{Err(AnalyzeErr{})}
 }
 

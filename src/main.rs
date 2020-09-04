@@ -3,12 +3,21 @@ mod analyzers;
 //mod test_ref;
 
 use std::error::Error;
+    
+use analyzers::LineAnalyzer;
+
+use analyzers::separators::Analyzer as SepLineAnalyzer;
+use analyzers::assignment::Analyzer as AssignmentAnalyzer;
+use analyzers::func_decl::Analyzer as FuncDeclAnalyzer;
+use analyzers::xml_attr::Analyzer as XmlAttrAnalyzer;
+use analyzers::var_decl::Analyzer as VarDeclAnalyzer;
 
 enum AutoMode {
     SimpleSpace, //space separated columns
     SimpleComma, //comma separated, space as a non-new column symbol
     SimpleAssignment,
     FnDecl,
+    VarDecl,
     Xml,
     CLike(Option<char>, Option<char>)        //ignores "", '', ignores lines starting with //, depending on what comes first {} or () tries to format inside there
 }
@@ -22,11 +31,7 @@ fn auto_analyze_cpp(s :& str) -> Option<AutoMode> {
             '{' => {o = Some('{'); c = Some('}')},
             '(' => {o = Some('('); c = Some(')')},
             _ => {
-                if let Some(_) = s[nonwhite..].find('=') {
-                   return Some(AutoMode::SimpleAssignment);
-                }else {
-                   return None;
-                }
+               return None;
             },
         }
     }else
@@ -37,14 +42,21 @@ fn auto_analyze_cpp(s :& str) -> Option<AutoMode> {
     Some(AutoMode::CLike(o, c))
 }
 
+fn try_accept<T:LineAnalyzer>(la : T, s :&str)->Result<(),analyzers::AnalyzeErr>{
+    la.can_accept(s)
+}
+
 fn auto_analyze(s :& str) -> AutoMode {
-    if let Some(mode) = auto_analyze_cpp(s) {
-        mode
-        //TODO: re-write this logic. Preference for FnDecl, then XML, then simple comma-separated
-    }else if let Some(_) = s.find('<') {
-        AutoMode::Xml
-    }else if let Some(_) = s.find('(') {
+    if let Ok(_) = try_accept(AssignmentAnalyzer{}, s) {
+       AutoMode::SimpleAssignment 
+    }else if let Ok(_) = try_accept(FuncDeclAnalyzer{}, s) {
         AutoMode::FnDecl
+    }else if let Ok(_) = try_accept(VarDeclAnalyzer{}, s) {
+        AutoMode::VarDecl
+    }else if let Ok(_) = try_accept(XmlAttrAnalyzer{}, s) {
+        AutoMode::Xml
+    }else if let Some(mode) = auto_analyze_cpp(s) {
+        mode
     }else if let Some(_) = s.find(',') {
         AutoMode::SimpleComma
     }else {
@@ -59,15 +71,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     use column_tools::Printer;
     use column_tools::Align;
     use column_tools::SeparatorConfig;
-    use analyzers::LineAnalyzer;
     
     use analyzers::separators::Boundary;
     use analyzers::separators::BoundType;
-    
-    use analyzers::separators::Analyzer as SepLineAnalyzer;
-    use analyzers::assignment::Analyzer as AssignmentAnalyzer;
-    use analyzers::func_decl::Analyzer as FuncDeclAnalyzer;
-    use analyzers::xml_attr::Analyzer as XmlAttrAnalyzer;
 
     use std::io::Write;
 
@@ -78,6 +84,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut assignment_analyzer = AssignmentAnalyzer{};
     let mut func_decl_analyzer = FuncDeclAnalyzer{};
     let mut xml_attr_analyzer = XmlAttrAnalyzer{};
+    let mut var_decl_analyzer = VarDeclAnalyzer{};
     
     let args : Vec<String> = std::env::args().collect();
 
@@ -195,6 +202,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let line_analyzer : &mut dyn LineAnalyzer;
 
+
     if auto_config && first_string.is_some() {
         separator_analyzer.clear();
         fmtr.clear();
@@ -204,8 +212,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         print_fill = ' ';
         print_fill_count = 0;
         print_join = String::new();
+        fmtr.set_add_pre_start(true);
+        let fs = first_string.unwrap();
 
-        match auto_analyze(&first_string.unwrap()) {
+        match auto_analyze(&fs) {
             AutoMode::SimpleSpace => {
                 separator_analyzer.set_separators(vec![' ']);
                 line_analyzer = &mut separator_analyzer;
@@ -218,19 +228,21 @@ fn main() -> Result<(), Box<dyn Error>> {
             },
             AutoMode::SimpleAssignment => {
                 non_matched_as_is = true;
-                fmtr.set_add_pre_start(true);
                 sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
                 line_analyzer = &mut assignment_analyzer;
             },
             AutoMode::FnDecl => {
                 non_matched_as_is = true;
-                fmtr.set_add_pre_start(true);
                 //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
                 line_analyzer = &mut func_decl_analyzer;
             },
+            AutoMode::VarDecl => {
+                non_matched_as_is = true;
+                //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
+                line_analyzer = &mut var_decl_analyzer;
+            },
             AutoMode::Xml => {
                 non_matched_as_is = true;
-                fmtr.set_add_pre_start(true);
                 //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
                 line_analyzer = &mut xml_attr_analyzer;
             },
@@ -250,7 +262,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
                 }
                 separator_analyzer.set_separators(seps);
-                fmtr.set_add_pre_start(true);
                 sep_cfgs.push(",: :1".parse::<SeparatorConfig>()?);
                 non_matched_as_is = true;
                 line_analyzer = &mut separator_analyzer;
