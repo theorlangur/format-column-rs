@@ -47,14 +47,14 @@ fn try_accept<T:LineAnalyzer>(la : T, s :&str)->Result<(),analyzers::AnalyzeErr>
 }
 
 fn auto_analyze(s :& str) -> AutoMode {
-    if let Ok(_) = try_accept(AssignmentAnalyzer{}, s) {
+    if let Ok(_) = try_accept(XmlAttrAnalyzer{}, s) {
+        AutoMode::Xml
+    }else if let Ok(_) = try_accept(AssignmentAnalyzer{}, s) {
        AutoMode::SimpleAssignment 
     }else if let Ok(_) = try_accept(FuncDeclAnalyzer{}, s) {
         AutoMode::FnDecl
     }else if let Ok(_) = try_accept(VarDeclAnalyzer{}, s) {
         AutoMode::VarDecl
-    }else if let Ok(_) = try_accept(XmlAttrAnalyzer{}, s) {
-        AutoMode::Xml
     }else if let Some(mode) = auto_analyze_cpp(s) {
         mode
     }else if let Some(_) = s.find(',') {

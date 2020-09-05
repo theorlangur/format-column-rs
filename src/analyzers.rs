@@ -35,6 +35,8 @@ pub trait LineParser
     fn find_nwhite(&self)->Result<usize, AnalyzeErr>;
     fn find_white(&self)->Result<usize, AnalyzeErr>;
     fn sym(&self, c: char)->Result<usize, AnalyzeErr>;
+    fn rsym(&self, c: char)->Result<usize, AnalyzeErr>;
+    fn expect_sym(&self, c : char)->Result<(), AnalyzeErr>;
 }
 
 impl LineParser for str {
@@ -52,5 +54,18 @@ impl LineParser for str {
     }
     fn sym(&self, c: char)->Result<usize, AnalyzeErr> {
         self.find(c).ok_or(AnalyzeErr{})
+    }
+    fn rsym(&self, c: char)->Result<usize, AnalyzeErr> {
+        self.rfind(c).ok_or(AnalyzeErr{})
+    }
+
+    fn expect_sym(&self, c : char)->Result<(), AnalyzeErr>
+    {
+        if let Some(ch) = self.chars().next() {
+            if ch == c {
+                return Ok(());
+            }
+        }
+        return Err(AnalyzeErr{});
     }
 }
