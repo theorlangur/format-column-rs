@@ -6,6 +6,7 @@ pub mod assignment;
 pub mod func_decl;
 pub mod xml_attr;
 pub mod var_decl;
+pub mod bit_field;
 
 #[derive(Debug)]
 pub struct AnalyzeErr{

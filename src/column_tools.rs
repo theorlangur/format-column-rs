@@ -219,6 +219,14 @@ pub struct SeparatorConfig
     sep_str : String,
 }
 
+impl SeparatorConfig {
+   pub fn new(sep: char, fill : char, count :u8, align : Align)->Self 
+   {
+       let sep_str = align_string(sep, &fill.to_string(), count as usize, &align);
+       Self{sep, fill, count, align, sep_str}
+   }
+}
+
 impl std::str::FromStr for SeparatorConfig {
     type Err = ParseErr;
 

@@ -24,7 +24,7 @@ impl Analyzer
         let var_end = s[..semi_pos].rfind_nwhite()?;
         let var_begin = s[..var_end].rfind_white()? + 1;
         let type_end = s[..var_begin].rfind_nwhite()?;
-        let type_begin = s.find_white()?;
+        let type_begin = s.find_nwhite()?;
         
         Ok(KeyPoints{var_begin, var_end, type_begin, type_end})
    }

@@ -11,6 +11,7 @@ use analyzers::assignment::Analyzer as AssignmentAnalyzer;
 use analyzers::func_decl::Analyzer as FuncDeclAnalyzer;
 use analyzers::xml_attr::Analyzer as XmlAttrAnalyzer;
 use analyzers::var_decl::Analyzer as VarDeclAnalyzer;
+use analyzers::bit_field::Analyzer as BitFieldAnalyzer;
 
 enum AutoMode {
     SimpleSpace, //space separated columns
@@ -19,6 +20,7 @@ enum AutoMode {
     FnDecl,
     VarDecl,
     Xml,
+    BitField,
     CLike(Option<char>, Option<char>)        //ignores "", '', ignores lines starting with //, depending on what comes first {} or () tries to format inside there
 }
 
@@ -49,6 +51,8 @@ fn try_accept<T:LineAnalyzer>(la : T, s :&str)->Result<(),analyzers::AnalyzeErr>
 fn auto_analyze(s :& str) -> AutoMode {
     if let Ok(_) = try_accept(XmlAttrAnalyzer{}, s) {
         AutoMode::Xml
+    }else if let Ok(_) = try_accept(BitFieldAnalyzer{}, s) {
+       AutoMode::BitField 
     }else if let Ok(_) = try_accept(AssignmentAnalyzer{}, s) {
        AutoMode::SimpleAssignment 
     }else if let Ok(_) = try_accept(FuncDeclAnalyzer{}, s) {
@@ -85,6 +89,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut func_decl_analyzer = FuncDeclAnalyzer{};
     let mut xml_attr_analyzer = XmlAttrAnalyzer{};
     let mut var_decl_analyzer = VarDeclAnalyzer{};
+    let mut bit_field_analyzer = BitFieldAnalyzer{};
     
     let args : Vec<String> = std::env::args().collect();
 
@@ -240,6 +245,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 non_matched_as_is = true;
                 //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
                 line_analyzer = &mut var_decl_analyzer;
+            },
+            AutoMode::BitField => {
+                //non_matched_as_is = true;
+                sep_cfgs.push(SeparatorConfig::new(':', ' ', 2, Align::Center));
+                line_analyzer = &mut bit_field_analyzer;
             },
             AutoMode::Xml => {
                 non_matched_as_is = true;
