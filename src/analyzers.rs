@@ -7,6 +7,7 @@ pub mod func_decl;
 pub mod xml_attr;
 pub mod var_decl;
 pub mod bit_field;
+pub mod cmnt_struct;
 
 #[derive(Debug)]
 pub struct AnalyzeErr{
@@ -27,6 +28,7 @@ pub trait LineAnalyzer
     fn clear(&mut self){}
     fn can_accept(&self, _s :&str)->Result<(),AnalyzeErr> {Err(AnalyzeErr{})}
     fn analyze_line<'a>(&mut self, _fmt :&mut Formatter, _l: &mut LineDescr<'a>)->Result<(),AnalyzeErr>{Err(AnalyzeErr{})}
+    fn type_name(&self)->&'static str {std::any::type_name::<Self>()}
 }
 
 pub trait LineParser

@@ -109,6 +109,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut non_matched_as_is = false;
     let mut auto_config = false;
     let mut add_pre_start = false;
+    let mut type_only = false;
 
     let mut sep_cfgs : Vec<SeparatorConfig> = vec![];
 
@@ -159,6 +160,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                auto_config = true;
            }else if arg == "--prestart" {
                add_pre_start = true;
+           }else if arg == "--type" {
+               type_only = true;
            }else if arg == "--sep_config" {
                if let Some(cfg_str) = arg_it.next() {
                    if let Ok(cfg) = cfg_str.parse::<SeparatorConfig>() {
@@ -252,7 +255,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 line_analyzer = &mut bit_field_analyzer;
             },
             AutoMode::Xml => {
-                non_matched_as_is = true;
+                //non_matched_as_is = true;
                 //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
                 line_analyzer = &mut xml_attr_analyzer;
             },
@@ -280,6 +283,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     }else
     {
         line_analyzer = &mut separator_analyzer;
+    }
+
+    if type_only {
+        println!("{}", line_analyzer.type_name());
+        return Ok(());
     }
     
     lines.reserve(lines_str.len());
