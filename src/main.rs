@@ -7,7 +7,8 @@ use std::error::Error;
 use analyzers::LineAnalyzer;
 
 use analyzers::separators::Analyzer as SepLineAnalyzer;
-use analyzers::assignment::Analyzer as AssignmentAnalyzer;
+use analyzers::assignment::TypeVarAnalyzer as AssignmentAnalyzer;
+use analyzers::assignment::VarAnalyzer as AssignmentVarAnalyzer;
 use analyzers::func_decl::Analyzer as FuncDeclAnalyzer;
 use analyzers::xml_attr::Analyzer as XmlAttrAnalyzer;
 use analyzers::var_decl::Analyzer as VarDeclAnalyzer;
@@ -17,6 +18,7 @@ enum AutoMode {
     SimpleSpace, //space separated columns
     SimpleComma, //comma separated, space as a non-new column symbol
     SimpleAssignment,
+    SimpleVarAssignment,
     FnDecl,
     VarDecl,
     Xml,
@@ -57,6 +59,8 @@ fn auto_analyze(s :& str) -> AutoMode {
        AutoMode::SimpleAssignment 
     }else if let Ok(_) = try_accept(FuncDeclAnalyzer{}, s) {
         AutoMode::FnDecl
+    }else if let Ok(_) = try_accept(AssignmentVarAnalyzer{}, s) {
+       AutoMode::SimpleVarAssignment 
     }else if let Ok(_) = try_accept(VarDeclAnalyzer{}, s) {
         AutoMode::VarDecl
     }else if let Some(mode) = auto_analyze_cpp(s) {
@@ -86,6 +90,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut separator_analyzer = SepLineAnalyzer::new();
     let mut assignment_analyzer = AssignmentAnalyzer{};
+    let mut assignment_var_analyzer = AssignmentVarAnalyzer{};
     let mut func_decl_analyzer = FuncDeclAnalyzer{};
     let mut xml_attr_analyzer = XmlAttrAnalyzer{};
     let mut var_decl_analyzer = VarDeclAnalyzer{};
@@ -238,6 +243,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 non_matched_as_is = true;
                 sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
                 line_analyzer = &mut assignment_analyzer;
+            },
+            AutoMode::SimpleVarAssignment => {
+                non_matched_as_is = true;
+                sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
+                line_analyzer = &mut assignment_var_analyzer;
             },
             AutoMode::FnDecl => {
                 non_matched_as_is = true;

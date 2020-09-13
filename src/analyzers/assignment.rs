@@ -4,11 +4,11 @@ use super::LineParser;
 use crate::column_tools::Formatter;
 use crate::column_tools::LineDescr;
 
-pub struct Analyzer
+pub struct TypeVarAnalyzer
 {
 }
 
-struct KeyPoints
+struct TypeVarKeyPoints
 {
     var_begin : usize,
     var_end : usize,
@@ -17,9 +17,9 @@ struct KeyPoints
     expr_begin : usize,
 }
 
-impl Analyzer
+impl TypeVarAnalyzer
 {
-   fn find_key_points(&self, s :&str)->Result<KeyPoints, AnalyzeErr> 
+   fn find_key_points(&self, s :&str)->Result<TypeVarKeyPoints, AnalyzeErr> 
    {
         let assign_pos = s.sym('=')?;
         if assign_pos + 1 >= s.len() { return Err(AnalyzeErr{}); }
@@ -31,11 +31,11 @@ impl Analyzer
 
         let expr_begin = s[assign_pos + 1..].find_nwhite()? + assign_pos + 1;
 
-        Ok(KeyPoints{var_begin, var_end, type_begin, type_end, expr_begin})
+        Ok(TypeVarKeyPoints{var_begin, var_end, type_begin, type_end, expr_begin})
    }
 }
 
-impl LineAnalyzer for Analyzer
+impl LineAnalyzer for TypeVarAnalyzer
 {
     fn clear(&mut self)
     {
@@ -49,11 +49,60 @@ impl LineAnalyzer for Analyzer
 
     fn analyze_line<'a>(&mut self, fmt :&mut Formatter, l: &mut LineDescr<'a>)->Result<(),AnalyzeErr>
     {
-        
-        let KeyPoints{var_begin, var_end, type_begin, type_end, expr_begin} = self.find_key_points(l.s)?;
+        let TypeVarKeyPoints{var_begin, var_end, type_begin, type_end, expr_begin} = self.find_key_points(l.s)?;
         fmt.add_column(type_begin, type_end + 1, ' ', l);
         fmt.add_column(var_begin, var_end + 1, '=', l);
         fmt.add_column(expr_begin, l.s.len(), '\0', l);
+        Ok(())
+    }
+}
+
+pub struct VarAnalyzer
+{
+}
+
+struct VarKeyPoints
+{
+    before_begin : usize,
+    before_end : usize,
+    after_begin : usize,
+    after_end : usize,
+}
+
+impl VarAnalyzer
+{
+   fn find_key_points(&self, s :&str)->Result<VarKeyPoints, AnalyzeErr> 
+   {
+        let assign_pos = s.sym('=')?;
+        if assign_pos + 1 >= s.len() { return Err(AnalyzeErr{}); }
+        
+        let before_end = s[..assign_pos].rfind_nwhite()?;
+        let before_begin = s[..assign_pos].find_white()?;
+        let after_begin = s[assign_pos + 1..].find_nwhite()? + assign_pos + 1;
+        let after_end = s[assign_pos + 1..].rfind_nwhite()? + assign_pos + 1;
+
+        Ok(VarKeyPoints{before_begin, before_end, after_begin, after_end})
+   }
+}
+
+
+impl LineAnalyzer for VarAnalyzer
+{
+    fn clear(&mut self)
+    {
+    }
+   
+    fn can_accept(&self, s :&str)->Result<(),AnalyzeErr> 
+    {
+        self.find_key_points(s)?;
+        Ok(())
+    }
+
+    fn analyze_line<'a>(&mut self, fmt :&mut Formatter, l: &mut LineDescr<'a>)->Result<(),AnalyzeErr>
+    {
+        let VarKeyPoints{before_begin, before_end, after_begin, after_end} = self.find_key_points(l.s)?;
+        fmt.add_column(before_begin, before_end + 1, '=', l);
+        fmt.add_column(after_begin, after_end + 1, '\0', l);
         Ok(())
     }
 }
