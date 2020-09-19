@@ -66,7 +66,7 @@ impl LineAnalyzer for Analyzer {
     {
         let KeyPoints{c_begin, c_end, block_begin} = self.find_key_points(l.s)?;
         fmt.add_column(c_begin, c_begin + 2, '\0',  l);
-        fmt.add_column(c_begin + 1, c_end, '\0',  l);
+        fmt.add_column(c_begin + 2, c_end, '\0',  l);
         fmt.add_column(c_end, c_end + 2, ' ',  l);
         //parse {} block here
         self.sepa.analyze_substr(fmt, &l.s[block_begin..], block_begin, l)

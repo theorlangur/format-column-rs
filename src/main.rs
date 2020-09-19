@@ -275,6 +275,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                 line_analyzer = &mut xml_attr_analyzer;
             },
             AutoMode::CommentWithStruct => {
+                fmtr.set_line_starts_to_ignore(vec!["//".to_string()]);
+                sep_cfgs.push(",: :1".parse::<SeparatorConfig>()?);
+                non_matched_as_is = true;
+                comment_struct_analyzer.clear();
                 line_analyzer = &mut comment_struct_analyzer;
             },
             AutoMode::CLike(open, close) => {
