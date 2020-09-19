@@ -255,21 +255,25 @@ impl std::str::FromStr for SeparatorConfig {
     }
 }
 
-pub struct Printer<'a>
+pub struct Printer
 {
     fill : char,
     fill_count : u8,
     join : String,
     align : Align,
-    fmt : &'a Formatter,
+    fmt : Option<Formatter>,
     non_matched_as_is : bool,//lines with not exactly amount of columns will be written as is
     sep_joins : Vec<SeparatorConfig>,
 }
 
-impl<'a> Printer<'a>{
-    pub fn new(fmt : &'a Formatter, align:Align, fill : char, fill_count : u8, join : String, non_matched_as_is : bool) -> Self
+impl Printer{
+    pub fn new(align:Align, fill : char, fill_count : u8, join : String, non_matched_as_is : bool) -> Self
     {
-        Self{fill, align, fmt, fill_count, join, non_matched_as_is, sep_joins : Vec::new()}
+        Self{fill, align, fmt:None, fill_count, join, non_matched_as_is, sep_joins : Vec::new()}
+    }
+    
+    pub fn set_formatter(&mut self, fmt :Formatter) {
+        self.fmt = Some(fmt);
     }
 
     pub fn set_separator_configs(&mut self, cfgs : Vec<SeparatorConfig>) {
@@ -283,13 +287,14 @@ impl<'a> Printer<'a>{
 
     pub fn format_line(&self, l : &LineDescr) -> Option<String>
     {
-        if (self.non_matched_as_is && l.columns.len() != self.fmt.columns.len()) || l.columns.is_empty() {
+        let fmt = self.fmt.as_ref().unwrap();
+        if (self.non_matched_as_is && l.columns.len() != fmt.columns.len()) || l.columns.is_empty() {
             let mut res = l.s.to_string();
             res.push('\n');
             return Some(res);
         }
         
-        let mut res = String::with_capacity(self.fmt.total_size + self.fmt.columns.len() * (self.join.len() + self.fill_count as usize));
+        let mut res = String::with_capacity(fmt.total_size + fmt.columns.len() * (self.join.len() + self.fill_count as usize));
         let fill_str = self.fill.to_string();
         let explicit_join = !self.join.is_empty();
         
@@ -299,7 +304,7 @@ impl<'a> Printer<'a>{
             }
             
             let subs : &str = s.col;
-            let w = self.fmt.columns[c];
+            let w = fmt.columns[c];
             let delta = w - subs.len() + self.fill_count as usize;
             
             res.push_str(&align_string(subs, &fill_str, delta, &self.align));

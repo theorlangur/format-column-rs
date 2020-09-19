@@ -1,6 +1,6 @@
 mod column_tools;
 mod analyzers;
-//mod test_ref;
+mod tests;
 
 use std::error::Error;
     
@@ -76,6 +76,115 @@ fn auto_analyze(s :& str) -> AutoMode {
     }
 }
 
+struct AutoConfigResult
+{
+    printer : column_tools::Printer,
+    formatter : column_tools::Formatter,
+    analyzer : Box<dyn LineAnalyzer>
+}
+
+fn do_auto_config(m:AutoMode)->AutoConfigResult {
+    use column_tools::Formatter;
+    use column_tools::Printer;
+    use column_tools::Align;
+    use column_tools::SeparatorConfig;
+
+    use analyzers::separators::Boundary;
+    use analyzers::separators::BoundType;
+
+    let mut print_join = String::new();
+    let analyzer : Box<dyn LineAnalyzer>;
+    let mut non_matched_as_is = false;
+    let mut sep_cfgs : Vec<SeparatorConfig> = vec![];
+    let mut fmtr : Formatter = Formatter::new();
+    let align = Align::Left;
+    let print_fill = ' ';
+    let print_fill_count = 0;
+
+    fmtr.clear();
+    fmtr.set_add_pre_start(true);
+
+    match m {
+            AutoMode::SimpleSpace => {
+                let mut sa = SepLineAnalyzer::new();
+                sa.clear();
+                sa.set_separators(vec![' ']);
+                analyzer = Box::new(sa);
+            },
+            AutoMode::SimpleComma => {
+                let mut sa = SepLineAnalyzer::new();
+                sa.set_separators(vec![',']);
+                sa.set_new_column_separators(vec![',', ' ']);
+                print_join = String::from(", ");
+                analyzer = Box::new(sa);
+            },
+            AutoMode::SimpleAssignment => {
+                non_matched_as_is = true;
+                sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>().unwrap());
+                analyzer = Box::new(AssignmentAnalyzer{});
+            },
+            AutoMode::SimpleVarAssignment => {
+                non_matched_as_is = true;
+                sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>().unwrap());
+                analyzer = Box::new(AssignmentVarAnalyzer{});
+            },
+            AutoMode::FnDecl => {
+                non_matched_as_is = true;
+                //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
+                analyzer = Box::new(FuncDeclAnalyzer{});
+            },
+            AutoMode::VarDecl => {
+                non_matched_as_is = true;
+                //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
+                analyzer = Box::new(VarDeclAnalyzer{});
+            },
+            AutoMode::BitField => {
+                //non_matched_as_is = true;
+                sep_cfgs.push(SeparatorConfig::new(':', ' ', 2, Align::Center));
+                analyzer = Box::new(BitFieldAnalyzer{});
+            },
+            AutoMode::Xml => {
+                //non_matched_as_is = true;
+                //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
+                analyzer = Box::new(XmlAttrAnalyzer{});
+            },
+            AutoMode::CommentWithStruct => {
+                fmtr.set_line_starts_to_ignore(vec!["//".to_string()]);
+                sep_cfgs.push(",: :1".parse::<SeparatorConfig>().unwrap());
+                non_matched_as_is = true;
+                let mut a = CommentStructAnalyzer::new();
+                a.clear();
+                analyzer = Box::new(a);
+            },
+            AutoMode::CLike(open, close) => {
+                let mut seps : Vec<char> = Vec::with_capacity(2);
+                seps.push(',');
+                fmtr.set_line_starts_to_ignore(vec!["//".to_string()]);
+                let mut sa = SepLineAnalyzer::new();
+                sa.set_new_column_separators(vec![',', ' ']);
+                sa.add_boundary(Boundary::new_sym('"', 1), BoundType::Exclude);
+                //fmtr.add_boundary(Boundary::new_asym('<', '>', 1), BoundType::Exclude);
+                if let Some(o) = open {
+                    if let Some(c) = close {
+                        seps.push(c);
+                        sa.add_boundary(Boundary::new_asym(o, c, 1), BoundType::Include);
+                    }else{
+                        sa.add_boundary(Boundary::new_sym(o, 1), BoundType::Include);
+                    }
+                }
+                sa.set_separators(seps);
+                sep_cfgs.push(",: :1".parse::<SeparatorConfig>().unwrap());
+                non_matched_as_is = true;
+                analyzer = Box::new(sa);
+            },
+    };
+
+    let mut printer = Printer::new(align, print_fill, print_fill_count, print_join, non_matched_as_is);
+    printer.set_separator_configs(sep_cfgs);
+
+    AutoConfigResult{printer, formatter:fmtr, analyzer}
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     
     use column_tools::LineDescr;
@@ -93,13 +202,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     //test_ref::test_ref2();
 
     let mut separator_analyzer = SepLineAnalyzer::new();
-    let mut assignment_analyzer = AssignmentAnalyzer{};
-    let mut assignment_var_analyzer = AssignmentVarAnalyzer{};
-    let mut func_decl_analyzer = FuncDeclAnalyzer{};
-    let mut xml_attr_analyzer = XmlAttrAnalyzer{};
-    let mut var_decl_analyzer = VarDeclAnalyzer{};
-    let mut bit_field_analyzer = BitFieldAnalyzer{};
-    let mut comment_struct_analyzer = CommentStructAnalyzer::new();
     
     let args : Vec<String> = std::env::args().collect();
 
@@ -219,92 +321,21 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let line_analyzer : &mut dyn LineAnalyzer;
+    let mut auto_config_res;
+    let mut printer;
 
 
     if auto_config && first_string.is_some() {
-        separator_analyzer.clear();
-        fmtr.clear();
-        sep_cfgs.clear();
-        align = Align::Left;
-        non_matched_as_is = false;
-        print_fill = ' ';
-        print_fill_count = 0;
-        print_join = String::new();
-        fmtr.set_add_pre_start(true);
         let fs = first_string.unwrap();
-
-        match auto_analyze(&fs) {
-            AutoMode::SimpleSpace => {
-                separator_analyzer.set_separators(vec![' ']);
-                line_analyzer = &mut separator_analyzer;
-            },
-            AutoMode::SimpleComma => {
-                separator_analyzer.set_separators(vec![',']);
-                separator_analyzer.set_new_column_separators(vec![',', ' ']);
-                print_join = String::from(", ");
-                line_analyzer = &mut separator_analyzer;
-            },
-            AutoMode::SimpleAssignment => {
-                non_matched_as_is = true;
-                sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
-                line_analyzer = &mut assignment_analyzer;
-            },
-            AutoMode::SimpleVarAssignment => {
-                non_matched_as_is = true;
-                sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
-                line_analyzer = &mut assignment_var_analyzer;
-            },
-            AutoMode::FnDecl => {
-                non_matched_as_is = true;
-                //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
-                line_analyzer = &mut func_decl_analyzer;
-            },
-            AutoMode::VarDecl => {
-                non_matched_as_is = true;
-                //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
-                line_analyzer = &mut var_decl_analyzer;
-            },
-            AutoMode::BitField => {
-                //non_matched_as_is = true;
-                sep_cfgs.push(SeparatorConfig::new(':', ' ', 2, Align::Center));
-                line_analyzer = &mut bit_field_analyzer;
-            },
-            AutoMode::Xml => {
-                //non_matched_as_is = true;
-                //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
-                line_analyzer = &mut xml_attr_analyzer;
-            },
-            AutoMode::CommentWithStruct => {
-                fmtr.set_line_starts_to_ignore(vec!["//".to_string()]);
-                sep_cfgs.push(",: :1".parse::<SeparatorConfig>()?);
-                non_matched_as_is = true;
-                comment_struct_analyzer.clear();
-                line_analyzer = &mut comment_struct_analyzer;
-            },
-            AutoMode::CLike(open, close) => {
-                let mut seps : Vec<char> = Vec::with_capacity(2);
-                seps.push(',');
-                fmtr.set_line_starts_to_ignore(vec!["//".to_string()]);
-                separator_analyzer.set_new_column_separators(vec![',', ' ']);
-                separator_analyzer.add_boundary(Boundary::new_sym('"', 1), BoundType::Exclude);
-                //fmtr.add_boundary(Boundary::new_asym('<', '>', 1), BoundType::Exclude);
-                if let Some(o) = open {
-                    if let Some(c) = close {
-                        seps.push(c);
-                        separator_analyzer.add_boundary(Boundary::new_asym(o, c, 1), BoundType::Include);
-                    }else{
-                        separator_analyzer.add_boundary(Boundary::new_sym(o, 1), BoundType::Include);
-                    }
-                }
-                separator_analyzer.set_separators(seps);
-                sep_cfgs.push(",: :1".parse::<SeparatorConfig>()?);
-                non_matched_as_is = true;
-                line_analyzer = &mut separator_analyzer;
-            },
-        }
+        auto_config_res = do_auto_config(auto_analyze(&fs));
+        line_analyzer = auto_config_res.analyzer.as_mut();
+        fmtr = auto_config_res.formatter;
+        printer = auto_config_res.printer;
     }else
     {
         line_analyzer = &mut separator_analyzer;
+        printer = Printer::new(align, print_fill, print_fill_count, print_join, non_matched_as_is);
+        printer.set_separator_configs(sep_cfgs);
     }
 
     if type_only {
@@ -332,8 +363,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Box::new(std::io::stdout())
         };
 
-    let mut printer = Printer::new(&fmtr, align, print_fill, print_fill_count, print_join, non_matched_as_is);
-    printer.set_separator_configs(sep_cfgs);
+    printer.set_formatter(fmtr);
     
     for l in lines.iter()
     {
