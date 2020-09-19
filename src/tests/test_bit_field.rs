@@ -1,5 +1,5 @@
 #[cfg(test)]
-pub mod mytests {
+mod mytests {
     use crate::tests::mytests::run_analyzer as run_analyzer;
     use crate::*;
 

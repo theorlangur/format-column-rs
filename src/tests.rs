@@ -1,4 +1,8 @@
 mod test_bit_field;
+mod test_var_decl;
+mod test_func_decl;
+mod test_assignment;
+mod test_xml;
 
 #[cfg(test)]
 pub mod mytests {
