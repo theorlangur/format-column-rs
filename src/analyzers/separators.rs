@@ -181,6 +181,53 @@ impl Analyzer {
             true //some other symbol - yes, can be a column begin
         }
     }
+    
+    pub fn analyze_substr<'a>(&mut self, fmt :&mut Formatter, st: &'a str, base: usize, l: &mut LineDescr<'a>)->Result<(),AnalyzeErr>
+    {
+        enum State{
+            BeforeColumnBegin,
+            InsideColumn
+        }
+        self.reset();
+        let mut ignore = false;
+        let mut first_non_white = true;
+
+        let mut column_begin = 0;
+        let mut past_column_end = 0;
+        let mut s = State::BeforeColumnBegin;
+        for (off,v) in st.char_indices(){
+            if first_non_white && !v.is_ascii_whitespace() {
+                first_non_white = false;
+                let first = &(st[off..]);
+                if fmt.check_line_start_to_ignore(first) {
+                    ignore = true;
+                    break;
+                }
+            }
+            s = match s {
+                State::BeforeColumnBegin => if self.is_column_begin(v) {
+                    column_begin = off; 
+                    State::InsideColumn
+                } else {State::BeforeColumnBegin},
+                State::InsideColumn => if self.is_column_end(v) {
+                        fmt.add_column(base + column_begin, base + off, v, l);
+                        past_column_end = off + 1;
+                        State::BeforeColumnBegin
+                    }else{
+                        State::InsideColumn
+                    }
+            }
+        }
+
+
+        if !ignore {
+            match s {
+                State::InsideColumn => fmt.add_column(base + column_begin, base + st.len(), '\0', l),
+                State::BeforeColumnBegin => if past_column_end < st.len() { fmt.add_column(base + past_column_end, base + st.len(), '\0', l); },
+            }
+        }
+        Ok(())
+    }
 }
 
 impl LineAnalyzer for Analyzer
@@ -201,48 +248,6 @@ impl LineAnalyzer for Analyzer
     
     fn analyze_line<'a>(&mut self, fmt :&mut Formatter, l: &mut LineDescr<'a>)->Result<(),AnalyzeErr>
     {
-        enum State{
-            BeforeColumnBegin,
-            InsideColumn
-        }
-        self.reset();
-        let mut ignore = false;
-        let mut first_non_white = true;
-
-        let mut column_begin = 0;
-        let mut past_column_end = 0;
-        let mut s = State::BeforeColumnBegin;
-        for (off,v) in l.s.char_indices(){
-            if first_non_white && !v.is_ascii_whitespace() {
-                first_non_white = false;
-                let first = &(l.s[off..]);
-                if fmt.check_line_start_to_ignore(first) {
-                    ignore = true;
-                    break;
-                }
-            }
-            s = match s {
-                State::BeforeColumnBegin => if self.is_column_begin(v) {
-                    column_begin = off; 
-                    State::InsideColumn
-                } else {State::BeforeColumnBegin},
-                State::InsideColumn => if self.is_column_end(v) {
-                        fmt.add_column(column_begin, off, v, l);
-                        past_column_end = off + 1;
-                        State::BeforeColumnBegin
-                    }else{
-                        State::InsideColumn
-                    }
-            }
-        }
-
-
-        if !ignore {
-            match s {
-                State::InsideColumn => fmt.add_column(column_begin, l.s.len(), '\0', l),
-                State::BeforeColumnBegin => if past_column_end < l.s.len() { fmt.add_column(past_column_end, l.s.len(), '\0', l); },
-            }
-        }
-        Ok(())
+        self.analyze_substr(fmt, l.s, 0, l)
     }
 }

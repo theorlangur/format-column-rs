@@ -13,6 +13,7 @@ use analyzers::func_decl::Analyzer as FuncDeclAnalyzer;
 use analyzers::xml_attr::Analyzer as XmlAttrAnalyzer;
 use analyzers::var_decl::Analyzer as VarDeclAnalyzer;
 use analyzers::bit_field::Analyzer as BitFieldAnalyzer;
+use analyzers::cmnt_struct::Analyzer as CommentStructAnalyzer;
 
 enum AutoMode {
     SimpleSpace, //space separated columns
@@ -23,6 +24,7 @@ enum AutoMode {
     VarDecl,
     Xml,
     BitField,
+    CommentWithStruct, // /* xxxx */ {.....}
     CLike(Option<char>, Option<char>)        //ignores "", '', ignores lines starting with //, depending on what comes first {} or () tries to format inside there
 }
 
@@ -61,6 +63,8 @@ fn auto_analyze(s :& str) -> AutoMode {
         AutoMode::FnDecl
     }else if let Ok(_) = try_accept(AssignmentVarAnalyzer{}, s) {
        AutoMode::SimpleVarAssignment 
+    }else if let Ok(_) = try_accept(CommentStructAnalyzer::new(), s) {
+        AutoMode::CommentWithStruct 
     }else if let Ok(_) = try_accept(VarDeclAnalyzer{}, s) {
         AutoMode::VarDecl
     }else if let Some(mode) = auto_analyze_cpp(s) {
@@ -95,6 +99,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut xml_attr_analyzer = XmlAttrAnalyzer{};
     let mut var_decl_analyzer = VarDeclAnalyzer{};
     let mut bit_field_analyzer = BitFieldAnalyzer{};
+    let mut comment_struct_analyzer = CommentStructAnalyzer::new();
     
     let args : Vec<String> = std::env::args().collect();
 
@@ -268,6 +273,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 //non_matched_as_is = true;
                 //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
                 line_analyzer = &mut xml_attr_analyzer;
+            },
+            AutoMode::CommentWithStruct => {
+                line_analyzer = &mut comment_struct_analyzer;
             },
             AutoMode::CLike(open, close) => {
                 let mut seps : Vec<char> = Vec::with_capacity(2);

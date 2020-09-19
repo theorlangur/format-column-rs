@@ -40,6 +40,8 @@ pub trait LineParser
     fn sym(&self, c: char)->Result<usize, AnalyzeErr>;
     fn rsym(&self, c: char)->Result<usize, AnalyzeErr>;
     fn expect_sym(&self, c : char)->Result<(), AnalyzeErr>;
+    fn find_str(&self, s: &str)->Result<usize, AnalyzeErr>;
+    fn rfind_str(&self, s: &str)->Result<usize, AnalyzeErr>;
 }
 
 impl LineParser for str {
@@ -70,5 +72,15 @@ impl LineParser for str {
             }
         }
         return Err(AnalyzeErr{});
+    }
+
+    fn find_str(&self, s: &str)->Result<usize, AnalyzeErr>
+    {
+        self.find(s).ok_or(AnalyzeErr{})
+    }
+
+    fn rfind_str(&self, s: &str)->Result<usize, AnalyzeErr>
+    {
+        self.rfind(s).ok_or(AnalyzeErr{})
     }
 }
