@@ -15,6 +15,9 @@ use analyzers::var_decl::Analyzer as VarDeclAnalyzer;
 use analyzers::bit_field::Analyzer as BitFieldAnalyzer;
 use analyzers::cmnt_struct::Analyzer as CommentStructAnalyzer;
 
+use column_tools::LineDescr;
+use column_tools::Printer;
+
 enum AutoMode {
     SimpleSpace, //space separated columns
     SimpleComma, //comma separated, space as a non-new column symbol
@@ -85,7 +88,6 @@ struct AutoConfigResult
 
 fn do_auto_config(m:AutoMode)->AutoConfigResult {
     use column_tools::Formatter;
-    use column_tools::Printer;
     use column_tools::Align;
     use column_tools::SeparatorConfig;
 
@@ -187,16 +189,12 @@ fn do_auto_config(m:AutoMode)->AutoConfigResult {
 
 fn main() -> Result<(), Box<dyn Error>> {
     
-    use column_tools::LineDescr;
     use column_tools::Formatter;
-    use column_tools::Printer;
     use column_tools::Align;
     use column_tools::SeparatorConfig;
     
     use analyzers::separators::Boundary;
     use analyzers::separators::BoundType;
-
-    use std::io::Write;
 
     //test_ref::test_ref();
     //test_ref::test_ref2();
@@ -365,9 +363,19 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     printer.set_formatter(fmtr);
     
+    write_lines_into(&lines, &printer, out.as_mut())
+}
+
+pub fn write_lines_into(lines :&Vec<LineDescr>, printer :&Printer, out :&mut dyn std::io::Write)->Result<(), Box<dyn Error>> {
+    let mut first_line = true;
     for l in lines.iter()
     {
         if let Some(s) = printer.format_line(&l) {
+            if !first_line {
+                out.write("\n".as_bytes())?;
+            }else{
+                first_line = false;
+            }
             out.write(s.as_bytes())?;
         }
     }

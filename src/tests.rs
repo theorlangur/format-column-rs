@@ -1,12 +1,17 @@
+mod test_bit_field;
+
 #[cfg(test)]
-mod tests{
+pub mod mytests {
     use crate::analyzers::LineAnalyzer;
     use crate::column_tools::LineDescr;
     use crate::column_tools::Formatter;
     use crate::column_tools::Printer;
+    use crate::write_lines_into;
 
-    pub fn run_analyzer(in_s :&str, la :&mut dyn LineAnalyzer, fmtr :&mut Formatter, printer :&Printer)->String{
+
+    pub fn run_analyzer(in_s :&str, la :&mut dyn LineAnalyzer, mut fmtr :Formatter, mut printer :Printer)->String{
        let lines_str : Vec<String> = in_s.lines().map(|x|x.to_string()).collect();
+
        let mut lines: Vec<LineDescr> = Vec::new();
 
         lines.reserve(lines_str.len());
@@ -18,15 +23,13 @@ mod tests{
 
         fmtr.finish();
 
+        printer.set_formatter(fmtr);
+
         let mut v = Vec::new();
         let out : &mut dyn std::io::Write = &mut v;
-        for l in lines.iter()
-        {
-            if let Some(s) = printer.format_line(&l) {
-                out.write(s.as_bytes()).unwrap();
-            }
-        }
         
-       std::str::from_utf8(&v).unwrap().to_string()
+        write_lines_into(&lines, &printer, out).unwrap();
+        
+        std::str::from_utf8(&v).unwrap().to_string()
     }
 }

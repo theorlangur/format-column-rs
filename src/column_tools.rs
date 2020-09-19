@@ -289,9 +289,7 @@ impl Printer{
     {
         let fmt = self.fmt.as_ref().unwrap();
         if (self.non_matched_as_is && l.columns.len() != fmt.columns.len()) || l.columns.is_empty() {
-            let mut res = l.s.to_string();
-            res.push('\n');
-            return Some(res);
+            return Some(l.s.to_string());
         }
         
         let mut res = String::with_capacity(fmt.total_size + fmt.columns.len() * (self.join.len() + self.fill_count as usize));
@@ -318,7 +316,6 @@ impl Printer{
             }
         }
 
-        res.push('\n');
         Some(res)
     }
 }
