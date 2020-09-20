@@ -23,6 +23,10 @@ impl Analyzer
         let paren_pos = s.sym('(')?;
         if paren_pos + 1 >= s.len() { return Err(AnalyzeErr{}); }
         
+        if let Some(_) = s[..paren_pos].find('=') {
+            return Err(AnalyzeErr{});
+        }
+        
         let fn_end = s[..paren_pos].rfind_nwhite()?;
         let fn_begin = s[..fn_end].rfind_white()? + 1;
         let type_end = s[..fn_begin].rfind_nwhite()?;
