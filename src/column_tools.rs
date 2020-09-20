@@ -295,10 +295,15 @@ impl Printer{
         let mut res = String::with_capacity(fmt.total_size + fmt.columns.len() * (self.join.len() + self.fill_count as usize));
         let fill_str = self.fill.to_string();
         let explicit_join = !self.join.is_empty();
+        let mut skip_join = true;
         
         for (c,s) in l.columns.iter().enumerate(){
-            if explicit_join && c > 0 {
+            if explicit_join && !skip_join {
                 res.push_str(&self.join);
+            }
+            
+            if skip_join && fmt.columns[c] > 0 {
+                skip_join = false;
             }
             
             let subs : &str = s.col;

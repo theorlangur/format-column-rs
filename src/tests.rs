@@ -3,6 +3,8 @@ mod test_var_decl;
 mod test_func_decl;
 mod test_assignment;
 mod test_xml;
+mod test_cmnt_structs;
+mod test_separators;
 
 #[cfg(test)]
 pub mod mytests {
