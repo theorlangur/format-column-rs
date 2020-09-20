@@ -29,6 +29,37 @@ type DynLineAnalyzer = Box<dyn LineAnalyzer>;
 type ACreate = Box<dyn Fn()->DynLineAnalyzer>;
 type AnalyzerFactory = std::collections::HashMap<&'static str, ACreate>;
 
+    
+fn read_input(src_file:Option<&String>)->(Vec<String>, Option<String>)
+{
+    let mut src : Box<dyn std::io::BufRead> = if src_file.is_some() {
+            let f = std::fs::File::open(src_file.unwrap());
+            if f.is_ok() {
+                Box::new(std::io::BufReader::new(f.unwrap()))
+            }else{
+                Box::new(std::io::BufReader::new(std::io::stdin()))
+            }
+        }else{
+            Box::new(std::io::BufReader::new(std::io::stdin()))
+        };
+
+    let mut first_string : Option<String> = None;
+    let mut lines_str : Vec<String> = vec![];
+    loop  
+    {
+        let mut l :String = String::new();
+        if src.read_line(&mut l).unwrap() <= 0 {
+            break;
+        } 
+        if first_string.is_none() {
+            first_string = Some(l.clone());
+        }
+        lines_str.push(l.trim_end().to_string());
+    }
+    
+    (lines_str, first_string)
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     
     let factory : AnalyzerFactory = {
@@ -80,30 +111,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    let mut src : Box<dyn std::io::BufRead> = if src_file.is_some() {
-            let f = std::fs::File::open(src_file.unwrap());
-            if f.is_ok() {
-                Box::new(std::io::BufReader::new(f?))
-            }else{
-                Box::new(std::io::BufReader::new(std::io::stdin()))
-            }
-        }else{
-            Box::new(std::io::BufReader::new(std::io::stdin()))
-        };
-
-    let mut first_string : Option<String> = None;
-    let mut lines_str : Vec<String> = vec![];
-    loop  
-    {
-        let mut l :String = String::new();
-        if src.read_line(&mut l)? <= 0 {
-            break;
-        } 
-        if first_string.is_none() {
-            first_string = Some(l.clone());
-        }
-        lines_str.push(l.trim_end().to_string());
-    }
+    let (lines_str, first_string) = read_input(src_file);
 
     let mut line_analyzer : DynLineAnalyzer;
     let mut printer;
