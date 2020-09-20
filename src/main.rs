@@ -198,9 +198,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     use analyzers::separators::Boundary;
     use analyzers::separators::BoundType;
 
-    //test_ref::test_ref();
-    //test_ref::test_ref2();
-
     let mut separator_analyzer = SepLineAnalyzer::new();
     
     let args : Vec<String> = std::env::args().collect();
