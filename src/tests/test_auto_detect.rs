@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod mytests {
-    use crate::*;
+    use crate::auto_config::*;
 
     #[test]
     fn test() {

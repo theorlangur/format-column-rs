@@ -1,5 +1,6 @@
 mod column_tools;
 mod analyzers;
+mod auto_config;
 mod tests;
 
 use std::error::Error;
@@ -7,187 +8,14 @@ use std::error::Error;
 use analyzers::LineAnalyzer;
 
 use analyzers::separators::Analyzer as SepLineAnalyzer;
-use analyzers::assignment::TypeVarAnalyzer as AssignmentAnalyzer;
-use analyzers::assignment::VarAnalyzer as AssignmentVarAnalyzer;
-use analyzers::func_decl::Analyzer as FuncDeclAnalyzer;
-use analyzers::xml_attr::Analyzer as XmlAttrAnalyzer;
-use analyzers::var_decl::Analyzer as VarDeclAnalyzer;
-use analyzers::bit_field::Analyzer as BitFieldAnalyzer;
-use analyzers::cmnt_struct::Analyzer as CommentStructAnalyzer;
 
 use column_tools::LineDescr;
 use column_tools::Printer;
+use column_tools::write_lines_into;
 
-#[derive(Debug)]
-#[derive(PartialEq)]
-enum AutoMode {
-    SimpleSpace, //space separated columns
-    SimpleComma, //comma separated, space as a non-new column symbol
-    SimpleAssignment,
-    SimpleVarAssignment,
-    FnDecl,
-    VarDecl,
-    Xml,
-    BitField,
-    CommentWithStruct, // /* xxxx */ {.....}
-    CLike(Option<char>, Option<char>)        //ignores "", '', ignores lines starting with //, depending on what comes first {} or () tries to format inside there
-}
+use auto_config::auto_analyze;
+use auto_config::do_auto_config;
 
-fn auto_analyze_cpp(s :& str) -> Option<AutoMode> {
-    let o;
-    let c;
-
-    if let Some(nonwhite) = s.find(|c:char|!c.is_ascii_whitespace()) {
-        match s[nonwhite..].chars().next().unwrap() {
-            '{' => {o = Some('{'); c = Some('}')},
-            '(' => {o = Some('('); c = Some(')')},
-            _ => {
-               return None;
-            },
-        }
-    }else
-    {
-        return None;
-    }
-
-    Some(AutoMode::CLike(o, c))
-}
-
-fn try_accept<T:LineAnalyzer>(la : T, s :&str)->Result<(),analyzers::AnalyzeErr>{
-    la.can_accept(s)
-}
-
-fn auto_analyze(s :& str) -> AutoMode {
-    if let Ok(_) = try_accept(XmlAttrAnalyzer{}, s) {
-        AutoMode::Xml
-    }else if let Ok(_) = try_accept(BitFieldAnalyzer{}, s) {
-       AutoMode::BitField 
-    }else if let Ok(_) = try_accept(AssignmentAnalyzer{}, s) {
-       AutoMode::SimpleAssignment 
-    }else if let Ok(_) = try_accept(FuncDeclAnalyzer{}, s) {
-        AutoMode::FnDecl
-    }else if let Ok(_) = try_accept(AssignmentVarAnalyzer{}, s) {
-       AutoMode::SimpleVarAssignment 
-    }else if let Ok(_) = try_accept(CommentStructAnalyzer::new(), s) {
-        AutoMode::CommentWithStruct 
-    }else if let Ok(_) = try_accept(VarDeclAnalyzer{}, s) {
-        AutoMode::VarDecl
-    }else if let Some(mode) = auto_analyze_cpp(s) {
-        mode
-    }else if let Some(_) = s.find(',') {
-        AutoMode::SimpleComma
-    }else {
-        AutoMode::SimpleSpace
-    }
-}
-
-struct AutoConfigResult
-{
-    printer : column_tools::Printer,
-    formatter : column_tools::Formatter,
-    analyzer : Box<dyn LineAnalyzer>
-}
-
-fn do_auto_config(m:AutoMode)->AutoConfigResult {
-    use column_tools::Formatter;
-    use column_tools::Align;
-    use column_tools::SeparatorConfig;
-
-    use analyzers::separators::Boundary;
-    use analyzers::separators::BoundType;
-
-    let mut print_join = String::new();
-    let analyzer : Box<dyn LineAnalyzer>;
-    let mut non_matched_as_is = false;
-    let mut sep_cfgs : Vec<SeparatorConfig> = vec![];
-    let mut fmtr : Formatter = Formatter::new();
-    let align = Align::Left;
-    let print_fill = ' ';
-    let print_fill_count = 0;
-
-    fmtr.clear();
-    fmtr.set_add_pre_start(true);
-
-    match m {
-            AutoMode::SimpleSpace => {
-                let mut sa = SepLineAnalyzer::new();
-                sa.clear();
-                sa.set_separators(vec![' ']);
-                analyzer = Box::new(sa);
-            },
-            AutoMode::SimpleComma => {
-                let mut sa = SepLineAnalyzer::new();
-                sa.set_separators(vec![',']);
-                sa.set_new_column_separators(vec![',', ' ']);
-                print_join = String::from(", ");
-                analyzer = Box::new(sa);
-            },
-            AutoMode::SimpleAssignment => {
-                non_matched_as_is = true;
-                sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>().unwrap());
-                analyzer = Box::new(AssignmentAnalyzer{});
-            },
-            AutoMode::SimpleVarAssignment => {
-                non_matched_as_is = true;
-                sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>().unwrap());
-                analyzer = Box::new(AssignmentVarAnalyzer{});
-            },
-            AutoMode::FnDecl => {
-                non_matched_as_is = true;
-                //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
-                analyzer = Box::new(FuncDeclAnalyzer{});
-            },
-            AutoMode::VarDecl => {
-                non_matched_as_is = true;
-                //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
-                analyzer = Box::new(VarDeclAnalyzer{});
-            },
-            AutoMode::BitField => {
-                //non_matched_as_is = true;
-                sep_cfgs.push(SeparatorConfig::new(':', ' ', 2, Align::Center));
-                analyzer = Box::new(BitFieldAnalyzer{});
-            },
-            AutoMode::Xml => {
-                //non_matched_as_is = true;
-                //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
-                analyzer = Box::new(XmlAttrAnalyzer{});
-            },
-            AutoMode::CommentWithStruct => {
-                fmtr.set_line_starts_to_ignore(vec!["//".to_string()]);
-                sep_cfgs.push(",: :1".parse::<SeparatorConfig>().unwrap());
-                non_matched_as_is = true;
-                let mut a = CommentStructAnalyzer::new();
-                a.clear();
-                analyzer = Box::new(a);
-            },
-            AutoMode::CLike(open, close) => {
-                let mut seps : Vec<char> = Vec::with_capacity(2);
-                seps.push(',');
-                fmtr.set_line_starts_to_ignore(vec!["//".to_string()]);
-                let mut sa = SepLineAnalyzer::new();
-                sa.set_new_column_separators(vec![',', ' ']);
-                sa.add_boundary(Boundary::new_sym('"', 1), BoundType::Exclude);
-                //fmtr.add_boundary(Boundary::new_asym('<', '>', 1), BoundType::Exclude);
-                if let Some(o) = open {
-                    if let Some(c) = close {
-                        seps.push(c);
-                        sa.add_boundary(Boundary::new_asym(o, c, 1), BoundType::Include);
-                    }else{
-                        sa.add_boundary(Boundary::new_sym(o, 1), BoundType::Include);
-                    }
-                }
-                sa.set_separators(seps);
-                sep_cfgs.push(",: :1".parse::<SeparatorConfig>().unwrap());
-                non_matched_as_is = true;
-                analyzer = Box::new(sa);
-            },
-    };
-
-    let mut printer = Printer::new(align, print_fill, print_fill_count, print_join, non_matched_as_is);
-    printer.set_separator_configs(sep_cfgs);
-
-    AutoConfigResult{printer, formatter:fmtr, analyzer}
-}
 
 fn main() -> Result<(), Box<dyn Error>> {
     
@@ -363,21 +191,4 @@ fn main() -> Result<(), Box<dyn Error>> {
     printer.set_formatter(fmtr);
     
     write_lines_into(&lines, &printer, out.as_mut())
-}
-
-pub fn write_lines_into(lines :&Vec<LineDescr>, printer :&Printer, out :&mut dyn std::io::Write)->Result<(), Box<dyn Error>> {
-    let mut first_line = true;
-    for l in lines.iter()
-    {
-        if let Some(s) = printer.format_line(&l) {
-            if !first_line {
-                out.write("\n".as_bytes())?;
-            }else{
-                first_line = false;
-            }
-            out.write(s.as_bytes())?;
-        }
-    }
-    out.flush()?;
-    Ok(())
 }

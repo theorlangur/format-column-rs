@@ -13,7 +13,7 @@ pub mod mytests {
     use crate::column_tools::LineDescr;
     use crate::column_tools::Formatter;
     use crate::column_tools::Printer;
-    use crate::write_lines_into;
+    use crate::column_tools::write_lines_into;
 
 
     pub fn run_analyzer(in_s :&str, la :&mut dyn LineAnalyzer, mut fmtr :Formatter, mut printer :Printer)->String{

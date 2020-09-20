@@ -324,3 +324,20 @@ impl Printer{
         Some(res)
     }
 }
+
+pub fn write_lines_into(lines :&Vec<LineDescr>, printer :&Printer, out :&mut dyn std::io::Write)->Result<(), Box<dyn std::error::Error>> {
+    let mut first_line = true;
+    for l in lines.iter()
+    {
+        if let Some(s) = printer.format_line(&l) {
+            if !first_line {
+                out.write("\n".as_bytes())?;
+            }else{
+                first_line = false;
+            }
+            out.write(s.as_bytes())?;
+        }
+    }
+    out.flush()?;
+    Ok(())
+}

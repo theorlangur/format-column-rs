@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod mytests {
     use crate::tests::mytests::run_analyzer as run_analyzer;
-    use crate::*;
+    use crate::auto_config::*;
 
     #[test]
     fn test_bit_field() {
