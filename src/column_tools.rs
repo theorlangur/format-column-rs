@@ -45,6 +45,24 @@ impl AddToString for char
     }
 }
 
+
+pub fn write_lines_into(lines :&Vec<LineDescr>, printer :&Printer, out :&mut dyn std::io::Write)->Result<(), Box<dyn std::error::Error>> {
+    let mut first_line = true;
+    for l in lines.iter()
+    {
+        if let Some(s) = printer.format_line(&l) {
+            if !first_line {
+                out.write("\n".as_bytes())?;
+            }else{
+                first_line = false;
+            }
+            out.write(s.as_bytes())?;
+        }
+    }
+    out.flush()?;
+    Ok(())
+}
+
 #[derive(Debug)]
 pub struct ParseErr{
     
@@ -208,6 +226,24 @@ impl Formatter
             l.columns.clear();
         }
     }
+
+    pub fn parse_args(&mut self, mut arg_it :std::slice::Iter<String>) -> Result<(), Box<dyn std::error::Error>> {
+        loop 
+        {
+            if let Some(arg) = arg_it.next() {
+               if arg == "--line_start_to_ignore" {
+                   if let Some(ignore) = arg_it.next() {
+                        self.line_starts_to_ignore.push(ignore.clone());
+                   }
+               }else if arg == "--prestart" {
+                   self.add_pre_start = true;
+               }
+            }else {
+                break;
+            }
+        }
+        Ok(())
+    }
 }
 
 pub struct SeparatorConfig
@@ -271,6 +307,11 @@ impl Printer{
     {
         Self{fill, align, fmt:None, fill_count, join, non_matched_as_is, sep_joins : Vec::new()}
     }
+
+    pub fn default() -> Self
+    {
+        Self{fill : ' ', align : Align::Center, fmt:None, fill_count : 0, join : String::new(), non_matched_as_is : false, sep_joins : Vec::new()}
+    }
     
     pub fn set_formatter(&mut self, fmt :Formatter) {
         self.fmt = Some(fmt);
@@ -323,21 +364,44 @@ impl Printer{
 
         Some(res)
     }
-}
 
-pub fn write_lines_into(lines :&Vec<LineDescr>, printer :&Printer, out :&mut dyn std::io::Write)->Result<(), Box<dyn std::error::Error>> {
-    let mut first_line = true;
-    for l in lines.iter()
-    {
-        if let Some(s) = printer.format_line(&l) {
-            if !first_line {
-                out.write("\n".as_bytes())?;
-            }else{
-                first_line = false;
+    pub fn parse_args(&mut self, mut arg_it :std::slice::Iter<String>) -> Result<(), Box<dyn std::error::Error>> {
+        let mut sep_cfgs : Vec<SeparatorConfig> = vec![];
+        loop 
+        {
+            if let Some(arg) = arg_it.next() {
+               if arg == "--align" {
+                   if let Some(align_str) = arg_it.next() {
+                       if let Ok(al) = align_str.parse::<Align>() {
+                           self.align = al;
+                       }
+                   }
+               }else if arg == "--fill" {
+                   if let Some(fill_str) = arg_it.next() {
+                       self.fill = fill_str.chars().next().unwrap();
+                   }
+               }else if arg == "--fill_count" {
+                   if let Some(fill_count_str) = arg_it.next() {
+                       self.fill_count = fill_count_str.parse().unwrap_or(1);
+                   }
+               }else if arg == "--join" {
+                   if let Some(join_str) = arg_it.next() {
+                       self.join = join_str.clone();
+                   }
+               }else if arg == "--non_matched_as_is" {
+                   self.non_matched_as_is = true;
+               }else if arg == "--sep_config" {
+                   if let Some(cfg_str) = arg_it.next() {
+                       if let Ok(cfg) = cfg_str.parse::<SeparatorConfig>() {
+                           sep_cfgs.push(cfg);
+                       }
+                   }
+               }
+            }else {
+                break;
             }
-            out.write(s.as_bytes())?;
-        }
+        };
+        self.set_separator_configs(sep_cfgs);
+        Ok(())
     }
-    out.flush()?;
-    Ok(())
 }

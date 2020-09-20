@@ -250,4 +250,36 @@ impl LineAnalyzer for Analyzer
     {
         self.analyze_substr(fmt, l.s, 0, l)
     }
+
+    fn parse_args(&mut self, mut arg_it :std::slice::Iter<String>) -> Result<(), Box<dyn std::error::Error>> {
+        let mut separators : Vec<char> = vec![' '];
+        let mut new_column_separators : Vec<char> = vec![];
+
+        loop 
+        {
+            if let Some(arg) = arg_it.next() {
+               if arg == "--include" || arg == "--exclude" {
+                   if let Some(bound_str) = arg_it.next() {
+                       if let Ok(bnd) = bound_str.parse::<Boundary>() {
+                            let bt = (&arg[2..]).parse::<BoundType>()?;
+                            self.add_boundary(bnd, bt); 
+                       }
+                   }
+               }else if arg == "--seps" {
+                   if let Some(seps) = arg_it.next() {
+                       separators = seps.chars().collect();
+                   }
+               } else if arg == "--new_column_seps" {
+                   if let Some(seps) = arg_it.next() {
+                       new_column_separators = seps.chars().collect();
+                   }
+               } 
+            }else {
+                break;
+            }
+        };
+        self.set_separators(separators);
+        self.set_new_column_separators(new_column_separators);
+        Ok(())
+    }
 }

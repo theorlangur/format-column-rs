@@ -29,6 +29,7 @@ pub trait LineAnalyzer
     fn can_accept(&self, _s :&str)->Result<(),AnalyzeErr> {Err(AnalyzeErr{})}
     fn analyze_line<'a>(&mut self, _fmt :&mut Formatter, _l: &mut LineDescr<'a>)->Result<(),AnalyzeErr>{Err(AnalyzeErr{})}
     fn type_name(&self)->&'static str {std::any::type_name::<Self>()}
+    fn parse_args(&mut self, _arg_it :std::slice::Iter<String>) -> Result<(), Box<dyn std::error::Error>> {Ok(())}
 }
 
 pub trait LineParser
