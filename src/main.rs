@@ -18,6 +18,8 @@ use analyzers::cmnt_struct::Analyzer as CommentStructAnalyzer;
 use column_tools::LineDescr;
 use column_tools::Printer;
 
+#[derive(Debug)]
+#[derive(PartialEq)]
 enum AutoMode {
     SimpleSpace, //space separated columns
     SimpleComma, //comma separated, space as a non-new column symbol

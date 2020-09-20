@@ -5,6 +5,7 @@ mod test_assignment;
 mod test_xml;
 mod test_cmnt_structs;
 mod test_separators;
+mod test_auto_detect;
 
 #[cfg(test)]
 pub mod mytests {
