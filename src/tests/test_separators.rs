@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod mytests {
-    use crate::tests::mytests::run_analyzer as run_analyzer;
+    use crate::tests::mytests::run_analyzer;
+    use crate::tests::mytests::assert_eq;
     use crate::auto_config::*;
 
     #[test]
@@ -23,7 +24,7 @@ try  to      format it correctly
 
         let result = run_analyzer(in_str, cfg.analyzer.as_mut(), cfg.formatter, cfg.printer);
 
-        assert_eq!(result, out_str);
+        assert_eq(&result, out_str);
     }
 
     #[test]
@@ -44,7 +45,7 @@ try to    , format it, correctly"##;
 
         let result = run_analyzer(in_str, cfg.analyzer.as_mut(), cfg.formatter, cfg.printer);
 
-        assert_eq!(result, out_str);
+        assert_eq(&result, out_str);
     }
     
     #[test]
@@ -68,6 +69,30 @@ try to    , format it, correctly"##;
 
         let result = run_analyzer(in_str, cfg.analyzer.as_mut(), cfg.formatter, cfg.printer);
 
-        assert_eq!(result, out_str);
+        assert_eq(&result, out_str);
+    }
+
+    #[test]
+    fn test_struct_comment() {
+        let mut cfg = do_auto_config(AutoMode::CLike(Some('{'), Some('}')));
+
+        //input
+        let in_str = r##"
+    {"SomeApi::Func1", &SomeApi::Func1, "{int b[, int : a]}", "result: boolean"},
+   {"SomeOtherApi::CoolMethod", &SomeOtherApi::CoolMyMethod, "string : nu, int : bla[, {x : all}]", "nothing"},//comment
+  {"JustApi::Boring", &JustApi::Boring, "", "nothing"}, //some other comment
+ {"OneMore::WhoNeedsThis", &OneMore::WhoNeedsThis, "nothing", ""},
+"##;
+        
+        //expected: (currently there are spaces at the end of each line except the longest one)
+        let out_str = r##"
+    {"SomeApi::Func1"          , &SomeApi::Func1            , "{int b[, int : a]}"                 , "result: boolean"},                   
+    {"SomeOtherApi::CoolMethod", &SomeOtherApi::CoolMyMethod, "string : nu, int : bla[, {x : all}]", "nothing"        },//comment
+    {"JustApi::Boring"         , &JustApi::Boring           , ""                                   , "nothing"        },//come other comment
+    {"OneMore::WhoNeedsThis"   , &OneMore::WhoNeedsThis     , "nothing"                            , ""               },"##;
+
+        let result = run_analyzer(in_str, cfg.analyzer.as_mut(), cfg.formatter, cfg.printer);
+
+        assert_eq(&result, out_str);
     }
 }

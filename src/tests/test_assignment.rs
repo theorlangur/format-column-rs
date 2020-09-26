@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod mytests {
-    use crate::tests::mytests::run_analyzer as run_analyzer;
+    use crate::tests::mytests::run_analyzer;
+    use crate::tests::mytests::assert_eq;
     use crate::auto_config::*;
 
     #[test]
@@ -27,7 +28,7 @@ mod mytests {
 
         let result = run_analyzer(in_str, cfg.analyzer.as_mut(), cfg.formatter, cfg.printer);
 
-        assert_eq!(result, out_str);
+        assert_eq(&result, out_str);
     }
 
     #[test]
@@ -54,6 +55,6 @@ s          = 2;
 
         let result = run_analyzer(in_str, cfg.analyzer.as_mut(), cfg.formatter, cfg.printer);
 
-        assert_eq!(result, out_str);
+        assert_eq(&result, out_str);
     }
 }
