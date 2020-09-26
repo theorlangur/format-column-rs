@@ -86,10 +86,10 @@ try to    , format it, correctly"##;
         
         //expected: (currently there are spaces at the end of each line except the longest one)
         let out_str = r##"
-    {"SomeApi::Func1"          , &SomeApi::Func1            , "{int b[, int : a]}"                 , "result: boolean"},                   
-    {"SomeOtherApi::CoolMethod", &SomeOtherApi::CoolMyMethod, "string : nu, int : bla[, {x : all}]", "nothing"        },//comment
-    {"JustApi::Boring"         , &JustApi::Boring           , ""                                   , "nothing"        },//come other comment
-    {"OneMore::WhoNeedsThis"   , &OneMore::WhoNeedsThis     , "nothing"                            , ""               },"##;
+    {"SomeApi::Func1"          , &SomeApi::Func1            , "{int b[, int : a]}"                 , "result: boolean"},                     
+    {"SomeOtherApi::CoolMethod", &SomeOtherApi::CoolMyMethod, "string : nu, int : bla[, {x : all}]", "nothing"        },//comment            
+    {"JustApi::Boring"         , &JustApi::Boring           , ""                                   , "nothing"        }, //some other comment
+    {"OneMore::WhoNeedsThis"   , &OneMore::WhoNeedsThis     , "nothing"                            , ""               },                     "##;
 
         let result = run_analyzer(in_str, cfg.analyzer.as_mut(), cfg.formatter, cfg.printer);
 

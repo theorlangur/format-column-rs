@@ -148,8 +148,8 @@ impl Analyzer {
         }
 
         for s in self.exclude.iter_mut() {
-            let (_, ignore) = s.check(c);
-            if ignore {
+            let (at_begin_end, ignore) = s.check(c);
+            if !at_begin_end && ignore {
                 res = false;
             }
         }
@@ -173,11 +173,10 @@ impl Analyzer {
 
     fn is_column_begin(&mut self, c : char) -> bool
     {
-        self.check_bounds(c);
-        /*
+        //self.check_bounds(c);
         if !self.check_bounds(c) {
             return false;
-        }*/
+        }
         let seps = if self.seps_new_column.is_empty() { &self.seps }else{ &self.seps_new_column };
         if let Result::Ok(_) = seps.binary_search(&c) {
             false //among separators? - no the column begin
