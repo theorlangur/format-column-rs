@@ -21,6 +21,9 @@ impl Analyzer
    {
         let semi_pos = s.sym(';')?;
         
+        if let Some(_) = s[..semi_pos].rfind(')') {
+            return Err(AnalyzeErr{});
+        }
         let var_end = s[..semi_pos].rfind_nwhite()?;
         let var_begin = s[..var_end].rfind_white()? + 1;
         let type_end = s[..var_begin].rfind_nwhite()?;

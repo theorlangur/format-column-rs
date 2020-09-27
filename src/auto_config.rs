@@ -5,6 +5,7 @@ use crate::analyzers::xml_attr::Analyzer as XmlAttrAnalyzer;
 use crate::analyzers::var_decl::Analyzer as VarDeclAnalyzer;
 use crate::analyzers::bit_field::Analyzer as BitFieldAnalyzer;
 use crate::analyzers::cmnt_struct::Analyzer as CommentStructAnalyzer;
+use crate::analyzers::func_call::Analyzer as FuncCallAnalyzer;
 use crate::analyzers::separators::Analyzer as SepLineAnalyzer;
 
 use crate::analyzers::LineAnalyzer;
@@ -25,6 +26,7 @@ pub enum AutoMode {
     SimpleAssignment,
     SimpleVarAssignment,
     FnDecl,
+    FnCall,
     VarDecl,
     Xml,
     BitField,
@@ -71,6 +73,8 @@ pub fn auto_analyze(s :& str) -> AutoMode {
         AutoMode::CommentWithStruct 
     }else if let Ok(_) = try_accept(VarDeclAnalyzer{}, s) {
         AutoMode::VarDecl
+    }else if let Ok(_) = try_accept(FuncCallAnalyzer::new(), s) {
+        AutoMode::FnCall
     }else if let Some(mode) = auto_analyze_cpp(s) {
         mode
     }else if let Some(_) = s.find(',') {
@@ -129,6 +133,13 @@ pub fn do_auto_config(m:AutoMode)->AutoConfigResult {
                 non_matched_as_is = true;
                 //sep_cfgs.push("=: :2:center".parse::<SeparatorConfig>()?);
                 analyzer = Box::new(FuncDeclAnalyzer{});
+            },
+            AutoMode::FnCall => {
+                non_matched_as_is = false;
+                sep_cfgs.push(",: :1".parse::<SeparatorConfig>().unwrap());
+                let mut a = FuncCallAnalyzer::new();
+                a.clear();
+                analyzer = Box::new(a);
             },
             AutoMode::VarDecl => {
                 non_matched_as_is = true;

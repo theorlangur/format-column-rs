@@ -8,6 +8,7 @@ pub mod xml_attr;
 pub mod var_decl;
 pub mod bit_field;
 pub mod cmnt_struct;
+pub mod func_call;
 
 #[derive(Debug)]
 pub struct AnalyzeErr{
