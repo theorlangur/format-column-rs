@@ -33,6 +33,10 @@ impl Analyzer
         if let Some(_) = s[..paren_pos].find('=') {
             return Err(AnalyzeErr{});
         }
+
+        if let Some(_) = s[..paren_pos].find(|c:char|{!(c.is_ascii_alphanumeric() || c==':' || c=='.' || c == '-' || c == '>' || c == '_' || c.is_whitespace())}) {
+            return Err(AnalyzeErr{});
+        }
         
         let fn_end = s[..paren_pos].rfind_nwhite()?;
         let fn_begin = s[..fn_end].find_nwhite()?;

@@ -37,5 +37,9 @@ mod mytests {
 
         let mode = auto_analyze(r##"{"SomeOtherApi::CoolMethod", &SomeOtherApi::CoolMyMethod, "string : nu, int : bla[, {x : all}]", "nothing"},"##);
         assert_eq!(mode, AutoMode::CLike(Some('{'), Some('}')));
+
+
+        let mode = auto_analyze(r##"{"SomeOtherApi::CoolMethod", (int64_t)CueOnly::Test},"##);
+        assert_eq!(mode, AutoMode::CLike(Some('{'), Some('}')));
     }
 }
