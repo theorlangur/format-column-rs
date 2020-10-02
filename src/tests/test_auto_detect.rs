@@ -23,6 +23,9 @@ mod mytests {
         let mode = auto_analyze("SomeTemplate<bla> and_another;");
         assert_eq!(mode, AutoMode::VarDecl);
 
+        let mode = auto_analyze("decltype(SomeClass::SomeProperty) SomeClass::SomeProperty;");
+        assert_eq!(mode, AutoMode::VarDecl);
+
         let mode = auto_analyze(r##"<someothertag gggprop1="ddval1" some= "some name" and=" different"/>"##);
         assert_eq!(mode, AutoMode::Xml);
 
