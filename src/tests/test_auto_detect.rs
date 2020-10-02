@@ -14,7 +14,13 @@ mod mytests {
         let mode = auto_analyze("MyClass x = 12;");
         assert_eq!(mode, AutoMode::SimpleAssignment);
 
+        let mode = auto_analyze("   const PropertyBase* pJoint = &DB::CuePart::g_CueTimingProperties.PropCueFade;");
+        assert_eq!(mode, AutoMode::SimpleAssignment);
+
         let mode = auto_analyze("SomwOtherl = SomwOtherl(x);");
+        assert_eq!(mode, AutoMode::SimpleVarAssignment);
+
+        let mode = auto_analyze("  pJoint = &DB::CuePart::g_CueTimingProperties.PropCueDelay;");
         assert_eq!(mode, AutoMode::SimpleVarAssignment);
 
         let mode = auto_analyze("uint64_t verylongbi : 4; //and here's a comment");

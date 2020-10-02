@@ -24,6 +24,13 @@ impl std::fmt::Display for AnalyzeErr {
 impl std::error::Error for AnalyzeErr {
 }
 
+impl std::convert::From<std::num::ParseIntError> for AnalyzeErr{
+    fn from(_err : std::num::ParseIntError) -> Self
+    {
+        Self{}
+    }
+}
+
 pub trait LineAnalyzer
 {
     fn clear(&mut self){}

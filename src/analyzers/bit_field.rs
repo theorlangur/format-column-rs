@@ -31,6 +31,7 @@ impl Analyzer
         let type_begin = s.find_nwhite()?;
         let bit_begin = s[colon_pos + 1..].find_nwhite()? + colon_pos + 1;
         let bit_end = s[bit_begin..].sym(';')? + bit_begin;
+        s[bit_begin..bit_end].parse::<u32>()?;
         let t = if bit_end + 1 < s.len() {
             s[bit_end + 1..].find_nwhite()
         }else {
