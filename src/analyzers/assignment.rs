@@ -4,6 +4,8 @@ use super::LineParser;
 use crate::column_tools::Formatter;
 use crate::column_tools::LineDescr;
 
+use regex::Regex;
+
 pub struct TypeVarAnalyzer
 {
 }
@@ -22,7 +24,15 @@ impl TypeVarAnalyzer
    fn find_key_points(&self, s :&str)->Result<TypeVarKeyPoints, AnalyzeErr> 
    {
         let assign_pos = s.sym('=')?;
-        if assign_pos + 1 >= s.len() { return Err(AnalyzeErr{}); }
+        if assign_pos + 1 >= s.len() {
+             return Err(AnalyzeErr{}); 
+        }
+        lazy_static! {
+            static ref RE:Regex = Regex::new(r"\)\s*(const)?\s*=\s*0;").unwrap();
+        }
+        if let Some(_) = RE.find(s) {
+             return Err(AnalyzeErr{}); 
+        }
         
         let var_end = s[..assign_pos].rfind_nwhite()?;
         let var_begin = s[..var_end].rfind_white()? + 1;

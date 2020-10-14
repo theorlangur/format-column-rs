@@ -1,3 +1,6 @@
+#[macro_use] 
+extern crate lazy_static;
+
 mod column_tools;
 mod analyzers;
 mod auto_config;

@@ -8,6 +8,9 @@ mod mytests {
         let mode = auto_analyze(" int  some_func(int, float);");
         assert_eq!(mode, AutoMode::FnDecl);
 
+        let mode = auto_analyze(" virtual int  some_func(int, float) = 0;");
+        assert_eq!(mode, AutoMode::FnDecl);
+
         let mode = auto_analyze("some_func(int, float);");
         assert_eq!(mode, AutoMode::FnCall);
 
